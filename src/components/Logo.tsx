@@ -1,4 +1,4 @@
-import logoFull from '@/assets/varzeando-logo.png';
+import logoFull from '@/assets/varzeando-logo-with-ball.png';
 import logoIcon from '@/assets/varzeando-icon.png';
 
 interface LogoProps {
