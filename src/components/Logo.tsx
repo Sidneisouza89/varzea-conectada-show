@@ -1,3 +1,6 @@
+import logoFull from '@/assets/varzeando-logo.png';
+import logoIcon from '@/assets/varzeando-icon.png';
+
 interface LogoProps {
   variant?: 'full' | 'icon';
   className?: string;
@@ -6,16 +9,20 @@ interface LogoProps {
 const Logo = ({ variant = 'full', className = '' }: LogoProps) => {
   if (variant === 'icon') {
     return (
-      <div className={`font-bold text-2xl ${className}`}>
-        <span className="text-primary">V</span>
-      </div>
+      <img 
+        src={logoIcon} 
+        alt="Varzeando" 
+        className={`h-8 w-8 object-contain ${className}`}
+      />
     );
   }
 
   return (
-    <div className={`font-bold text-2xl tracking-tight ${className}`}>
-      <span className="text-gradient">VARZEANDO</span>
-    </div>
+    <img 
+      src={logoFull} 
+      alt="Varzeando" 
+      className={`h-8 object-contain ${className}`}
+    />
   );
 };
 
