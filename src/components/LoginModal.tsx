@@ -13,7 +13,7 @@ interface LoginModalProps {
 }
 
 const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,16 +23,16 @@ const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = await apiFetch<{ token: string; user: { name: string; role: string } }>(
+      const data = await apiFetch<{ access_token: string; refresh_token: string; user: string; role: string }>(
         API_ENDPOINTS.auth.login,
         {
           method: "POST",
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ username, password }),
         }
       );
-      localStorage.setItem("varzeando_token", data.token);
-      localStorage.setItem("varzeando_user", JSON.stringify(data.user));
-      toast({ title: "Login realizado!", description: `Bem-vindo, ${data.user.name}!` });
+      localStorage.setItem("varzeando_token", data.access_token);
+      localStorage.setItem("varzeando_user", JSON.stringify({ name: data.user, role: data.role }));
+      toast({ title: "Login realizado!", description: `Bem-vindo ao Varzeando!` });
       onOpenChange(false);
       window.location.reload();
     } catch {
@@ -48,7 +48,7 @@ const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
     try {
       await apiFetch(API_ENDPOINTS.auth.register, {
         method: "POST",
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ username, password }),
       });
       toast({ title: "Cadastro realizado!", description: "Faça login para continuar." });
     } catch {
@@ -75,12 +75,26 @@ const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
           <TabsContent value="login">
             <form onSubmit={handleLogin} className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label htmlFor="login-email">E-mail</Label>
-                <Input id="login-email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Label htmlFor="login-username">Usuário</Label>
+                <Input
+                  id="login-username"
+                  type="text"
+                  placeholder="Seu nome de usuário"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="login-password">Senha</Label>
-                <Input id="login-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input
+                  id="login-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Entrando..." : "Entrar"}
@@ -92,15 +106,36 @@ const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
             <form onSubmit={handleRegister} className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="reg-name">Nome</Label>
-                <Input id="reg-name" type="text" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} required />
+                <Input
+                  id="reg-name"
+                  type="text"
+                  placeholder="Seu nome"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-email">E-mail</Label>
-                <Input id="reg-email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Label htmlFor="reg-username">Usuário</Label>
+                <Input
+                  id="reg-username"
+                  type="text"
+                  placeholder="Ex: admin_varzea"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reg-password">Senha</Label>
-                <Input id="reg-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input
+                  id="reg-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Cadastrando..." : "Criar conta"}
