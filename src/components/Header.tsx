@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Menu, Search, User, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "./Logo";
@@ -9,7 +10,7 @@ const Header = () => {
   const [loginOpen, setLoginOpen] = useState(false);
   const storedUser = localStorage.getItem("varzeando_user");
   const user = storedUser ? JSON.parse(storedUser) : null;
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "master" || user?.role === "admin";
 
   const handleLogout = () => {
     localStorage.removeItem("varzeando_token");
@@ -23,20 +24,19 @@ const Header = () => {
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-8">
-              <Logo />
+              <Link to="/">
+                <Logo />
+              </Link>
               <nav className="hidden md:flex items-center gap-6">
-                <a href="#jogos" className="text-sm font-medium transition-colors hover:text-primary">
+                <Link to="/jogos" className="text-sm font-medium transition-colors hover:text-primary">
                   Jogos
-                </a>
-                <a href="#times" className="text-sm font-medium transition-colors hover:text-primary">
+                </Link>
+                <Link to="/times" className="text-sm font-medium transition-colors hover:text-primary">
                   Times
-                </a>
-                <a href="#campeonatos" className="text-sm font-medium transition-colors hover:text-primary">
+                </Link>
+                <Link to="/campeonatos" className="text-sm font-medium transition-colors hover:text-primary">
                   Campeonatos
-                </a>
-                <a href="#estadios" className="text-sm font-medium transition-colors hover:text-primary">
-                  Estádios
-                </a>
+                </Link>
                 {isAdmin && (
                   <a
                     href={API_ENDPOINTS.monitoring}
@@ -50,12 +50,10 @@ const Header = () => {
                 )}
               </nav>
             </div>
-
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" className="hidden md:inline-flex">
                 <Search className="h-5 w-5" />
               </Button>
-
               {user ? (
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
                   <User className="h-5 w-5" />
@@ -66,7 +64,6 @@ const Header = () => {
                   <User className="h-5 w-5" />
                 </Button>
               )}
-
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5" />
               </Button>
@@ -74,7 +71,6 @@ const Header = () => {
           </div>
         </div>
       </header>
-
       <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
     </>
   );
