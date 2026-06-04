@@ -1,58 +1,61 @@
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MatchCard from "./MatchCard";
+import { API_BASE_URL } from "@/lib/api";
+
+interface Jogo {
+  jogo_id: number;
+  mandante: string;
+  visitante: string;
+  campeonato: string;
+  data_hora: string;
+  status: string;
+}
 
 const MatchesList = () => {
-  // Mock data - will be replaced with real data from API
-  const liveMatches = [
-    {
-      homeTeam: "Unidos da Vila",
-      awayTeam: "Estrela do Bairro",
-      stadium: "Campo do Santos",
-      time: "Agora - 2º tempo",
-      championship: "Copa Zona Leste",
-      status: "live" as const,
-      score: "2 - 1"
-    },
-    {
-      homeTeam: "Amigos FC",
-      awayTeam: "Raça Tricolor",
-      stadium: "Campo da Cohab",
-      time: "Agora - 1º tempo",
-      championship: "Várzea Master",
-      status: "live" as const,
-      score: "0 - 0"
-    }
-  ];
+  const [jogos, setJogos] = useState<Jogo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const upcomingMatches = [
-    {
-      homeTeam: "Boteco FC",
-      awayTeam: "Pelada Roots",
-      stadium: "Campo do Parque",
-      time: "Hoje às 16:00",
-      championship: "Campeonato Regional",
-      status: "upcoming" as const
-    },
-    {
-      homeTeam: "Guerreiros da Bola",
-      awayTeam: "Vasco da Quebrada",
-      stadium: "Estádio Municipal",
-      time: "Hoje às 18:00",
-      championship: "Liga Metropolitana",
-      status: "upcoming" as const
-    },
-    {
-      homeTeam: "Real Madrid da Favela",
-      awayTeam: "Ponte Preta FC",
-      stadium: "Campo do Jardim",
-      time: "Amanhã às 10:00",
-      championship: "Copa Zona Leste",
-      status: "upcoming" as const
-    }
-  ];
+  useEffect(() => {
+    const fetchJogos = async () => {
+      try {
+        const token = localStorage.getItem("varzeando_token");
+        const response = await fetch(`${API_BASE_URL}/api/jogos`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setJogos(data);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar jogos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJogos();
+  }, []);
+
+  const jogosAoVivo = jogos.filter((j) => j.status === "Em andamento");
+  const jogosProximos = jogos.filter((j) => j.status === "Agendado");
+  const jogosFinaliz = jogos.filter((j) => j.status === "Finalizado");
+
+  if (loading) {
+    return (
+      <section className="py-16">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-muted-foreground">Carregando jogos...</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className="py-16">
+    <section id="jogos" className="py-16">
       <div className="container mx-auto px-4">
         <div className="mb-8 text-center">
           <h2 className="mb-3 text-3xl font-bold md:text-4xl">
@@ -63,30 +66,77 @@ const MatchesList = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="live" className="w-full">
-          <TabsList className="mb-8 grid w-full max-w-md mx-auto grid-cols-2">
+        <Tabs defaultValue="finalizados" className="w-full">
+          <TabsList className="mb-8 grid w-full max-w-lg mx-auto grid-cols-3">
             <TabsTrigger value="live" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Ao Vivo ({liveMatches.length})
+              Ao Vivo ({jogosAoVivo.length})
             </TabsTrigger>
             <TabsTrigger value="upcoming">
-              Próximos ({upcomingMatches.length})
+              Próximos ({jogosProximos.length})
+            </TabsTrigger>
+            <TabsTrigger value="finalizados">
+              Finalizados ({jogosFinaliz.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="live" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {liveMatches.map((match, index) => (
-                <MatchCard key={index} {...match} />
-              ))}
-            </div>
+            {jogosAoVivo.length === 0 ? (
+              <p className="text-center text-muted-foreground">Nenhum jogo ao vivo no momento.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {jogosAoVivo.map((j) => (
+                  <MatchCard
+                    key={j.jogo_id}
+                    homeTeam={j.mandante}
+                    awayTeam={j.visitante}
+                    stadium=""
+                    time="Ao vivo"
+                    championship={j.campeonato}
+                    status="live"
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="upcoming" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {upcomingMatches.map((match, index) => (
-                <MatchCard key={index} {...match} />
-              ))}
-            </div>
+            {jogosProximos.length === 0 ? (
+              <p className="text-center text-muted-foreground">Nenhum jogo agendado.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {jogosProximos.map((j) => (
+                  <MatchCard
+                    key={j.jogo_id}
+                    homeTeam={j.mandante}
+                    awayTeam={j.visitante}
+                    stadium=""
+                    time={j.data_hora}
+                    championship={j.campeonato}
+                    status="upcoming"
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="finalizados" className="space-y-4">
+            {jogosFinaliz.length === 0 ? (
+              <p className="text-center text-muted-foreground">Nenhum jogo finalizado.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {jogosFinaliz.map((j) => (
+                  <MatchCard
+                    key={j.jogo_id}
+                    homeTeam={j.mandante}
+                    awayTeam={j.visitante}
+                    stadium=""
+                    time={j.data_hora}
+                    championship={j.campeonato}
+                    status="upcoming"
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
