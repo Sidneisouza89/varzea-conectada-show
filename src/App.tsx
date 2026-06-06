@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Times from "./pages/Times";
 import Jogos from "./pages/Jogos";
 import Campeonatos from "./pages/Campeonatos";
+import Estadios from "./pages/Estadios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/times" element={<Times />} />
           <Route path="/jogos" element={<Jogos />} />
           <Route path="/campeonatos" element={<Campeonatos />} />
+          <Route path="/estadios" element={<Estadios />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
