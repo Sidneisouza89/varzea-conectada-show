@@ -46,7 +46,10 @@ const Jogos = () => {
   const jogosFinaliz = jogos.filter((j) => j.status === "Finalizado");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen relative bg-background">
+      {/* Gradiente de fundo */}
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-orange-500/10 via-background to-blue-900/20 pointer-events-none" />
+
       <Header />
       <main className="container mx-auto px-4 py-12">
         <div className="mb-8 text-center">
@@ -57,10 +60,18 @@ const Jogos = () => {
         </div>
 
         {loading ? (
-          <p className="text-center text-muted-foreground">Carregando jogos...</p>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1,2,3].map((i) => (
+              <div key={i} className="rounded-xl border bg-card/80 p-6 shadow-sm animate-pulse">
+                <div className="h-4 bg-muted rounded w-3/4 mb-3" />
+                <div className="h-3 bg-muted rounded w-1/2 mb-6" />
+                <div className="h-8 bg-muted rounded w-full" />
+              </div>
+            ))}
+          </div>
         ) : (
           <Tabs defaultValue="finalizados" className="w-full">
-            <TabsList className="mb-8 grid w-full max-w-lg mx-auto grid-cols-3">
+            <TabsList className="mb-8 grid w-full max-w-lg mx-auto grid-cols-3 bg-card/80 backdrop-blur-sm">
               <TabsTrigger value="live">
                 Ao Vivo ({jogosAoVivo.length})
               </TabsTrigger>
@@ -74,7 +85,7 @@ const Jogos = () => {
 
             <TabsContent value="live">
               {jogosAoVivo.length === 0 ? (
-                <p className="text-center text-muted-foreground">Nenhum jogo ao vivo.</p>
+                <p className="text-center text-muted-foreground py-12">Nenhum jogo ao vivo.</p>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {jogosAoVivo.map((j) => (
@@ -87,7 +98,7 @@ const Jogos = () => {
 
             <TabsContent value="upcoming">
               {jogosProximos.length === 0 ? (
-                <p className="text-center text-muted-foreground">Nenhum jogo agendado.</p>
+                <p className="text-center text-muted-foreground py-12">Nenhum jogo agendado.</p>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {jogosProximos.map((j) => (
@@ -100,7 +111,7 @@ const Jogos = () => {
 
             <TabsContent value="finalizados">
               {jogosFinaliz.length === 0 ? (
-                <p className="text-center text-muted-foreground">Nenhum jogo finalizado.</p>
+                <p className="text-center text-muted-foreground py-12">Nenhum jogo finalizado.</p>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {jogosFinaliz.map((j) => (
