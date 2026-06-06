@@ -1,135 +1,107 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
-
 @layer base {
   :root {
     /* Varzeando Brand Colors */
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;
-
     --card: 0 0% 100%;
     --card-foreground: 0 0% 0%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
-
     /* Laranja Várzea - Primary */
     --primary: 27 100% 45%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 27 100% 55%;
-
     /* Azul Escuro - Trust */
     --secondary: 210 100% 25%;
     --secondary-foreground: 0 0% 100%;
-
     /* Azul Claro - Clarity */
     --accent: 197 71% 62%;
     --accent-foreground: 0 0% 0%;
-
     /* Verde Gramado - Authenticity */
     --success: 102 60% 29%;
     --success-foreground: 0 0% 100%;
-
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 0 0% 90%;
     --input: 0 0% 90%;
     --ring: 27 100% 45%;
-
     --radius: 0.75rem;
-
     /* Gradients */
     --gradient-hero: linear-gradient(135deg, hsl(27 100% 45%) 0%, hsl(210 100% 25%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 98%) 100%);
     --gradient-overlay: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.7) 100%);
-
+    /* Page background gradient (suave, light mode) */
+    --gradient-page: linear-gradient(135deg, hsl(27 100% 45% / 0.07) 0%, hsl(0 0% 100% / 0) 50%, hsl(210 100% 25% / 0.07) 100%);
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(232, 116, 0, 0.1), 0 2px 4px -1px rgba(232, 116, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(232, 116, 0, 0.15), 0 4px 6px -2px rgba(232, 116, 0, 0.05);
     --shadow-glow: 0 0 20px rgba(232, 116, 0, 0.3);
-
     /* Typography */
     --font-heading: 'Inter', -apple-system, system-ui, sans-serif;
     --font-body: 'Inter', -apple-system, system-ui, sans-serif;
-
     /* Spacing */
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
-
     /* Transitions */
     --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
-
   .dark {
     --background: 210 100% 8%;
     --foreground: 0 0% 100%;
-
     --card: 210 100% 12%;
     --card-foreground: 0 0% 100%;
-
     --popover: 210 100% 12%;
     --popover-foreground: 0 0% 100%;
-
     --primary: 27 100% 45%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 27 100% 55%;
-
     --secondary: 210 100% 25%;
     --secondary-foreground: 0 0% 100%;
-
     --accent: 197 71% 62%;
     --accent-foreground: 0 0% 0%;
-
     --success: 102 60% 29%;
     --success-foreground: 0 0% 100%;
-
     --muted: 210 100% 15%;
     --muted-foreground: 0 0% 65%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 210 100% 20%;
     --input: 210 100% 20%;
     --ring: 27 100% 45%;
-
     --gradient-hero: linear-gradient(135deg, hsl(27 100% 35%) 0%, hsl(210 100% 20%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(210 100% 12%) 0%, hsl(210 100% 10%) 100%);
     --gradient-overlay: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.9) 100%);
+    /* Page background gradient (suave, dark mode) */
+    --gradient-page: linear-gradient(135deg, hsl(27 100% 45% / 0.12) 0%, hsl(210 100% 8% / 0) 50%, hsl(210 100% 25% / 0.15) 100%);
   }
 }
-
 @layer base {
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-body);
   }
-
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     font-weight: 700;
   }
 }
-
 @layer utilities {
   .text-gradient {
     background: var(--gradient-hero);
@@ -137,20 +109,25 @@ All colors MUST be HSL.
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
-
   .transition-fast {
     transition: var(--transition-fast);
   }
-
   .transition-base {
     transition: var(--transition-base);
   }
-
   .transition-slow {
     transition: var(--transition-slow);
+  }
+  /* Gradiente de fundo das páginas internas */
+  .bg-page-gradient::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    background: var(--gradient-page);
+    pointer-events: none;
   }
 }
