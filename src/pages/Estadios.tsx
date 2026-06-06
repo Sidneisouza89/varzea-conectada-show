@@ -53,30 +53,27 @@ const Estadios = () => {
   const bairros = [...new Set(estadios.map((e) => e.bairro).filter(Boolean))];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen relative bg-background">
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-orange-500/10 via-background to-blue-900/20 pointer-events-none" />
+
       <Header />
       <main className="container mx-auto px-4 py-12">
-
-        {/* Hero */}
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
             <Building2 className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-4xl font-bold mb-3">Estádios</h1>
-          <p className="text-muted-foreground text-lg">
-            Campos e praças esportivas de Diadema
-          </p>
+          <p className="text-muted-foreground text-lg">Campos e praças esportivas de Diadema</p>
         </div>
 
-        {/* Resumo */}
         {!loading && estadios.length > 0 && (
           <div className="flex justify-center gap-4 mb-8 flex-wrap">
-            <div className="flex items-center gap-2 bg-card border rounded-xl px-5 py-3 shadow-sm">
+            <div className="flex items-center gap-2 bg-card/80 backdrop-blur-sm border rounded-xl px-5 py-3 shadow-sm">
               <Building2 className="w-4 h-4 text-primary" />
               <span className="font-semibold">{estadios.length}</span>
               <span className="text-muted-foreground text-sm">Campos</span>
             </div>
-            <div className="flex items-center gap-2 bg-card border rounded-xl px-5 py-3 shadow-sm">
+            <div className="flex items-center gap-2 bg-card/80 backdrop-blur-sm border rounded-xl px-5 py-3 shadow-sm">
               <Navigation className="w-4 h-4 text-primary" />
               <span className="font-semibold">{bairros.length}</span>
               <span className="text-muted-foreground text-sm">Bairros</span>
@@ -84,7 +81,6 @@ const Estadios = () => {
           </div>
         )}
 
-        {/* Busca */}
         {!loading && estadios.length > 0 && (
           <div className="flex justify-center mb-8">
             <div className="relative w-full max-w-md">
@@ -94,17 +90,16 @@ const Estadios = () => {
                 placeholder="Buscar por nome ou bairro..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border bg-card/80 backdrop-blur-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </div>
         )}
 
-        {/* Loading skeleton */}
         {loading && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl border bg-card p-6 shadow-sm animate-pulse">
+              <div key={i} className="rounded-xl border bg-card/80 p-6 shadow-sm animate-pulse">
                 <div className="h-4 bg-muted rounded w-3/4 mb-3" />
                 <div className="h-3 bg-muted rounded w-1/2 mb-6" />
                 <div className="h-8 bg-muted rounded w-full" />
@@ -113,15 +108,13 @@ const Estadios = () => {
           </div>
         )}
 
-        {/* Cards */}
         {!loading && estadiosFiltrados.length > 0 && (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {estadiosFiltrados.map((e) => (
               <div
                 key={e.id}
-                className="rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group"
+                className="rounded-xl border bg-card/80 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group"
               >
-                {/* Header do card */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
                     <Building2 className="w-6 h-6 text-primary" />
@@ -130,14 +123,10 @@ const Estadios = () => {
                     {e.cidade ?? "Diadema"}
                   </span>
                 </div>
-
-                {/* Nome */}
                 <h3 className="font-bold text-lg mb-1 leading-tight">{e.nome_oficial}</h3>
                 {e.apelido && e.apelido !== e.nome_oficial && (
                   <p className="text-sm text-muted-foreground italic mb-3">"{e.apelido}"</p>
                 )}
-
-                {/* Localização */}
                 {e.bairro && (
                   <div className="flex items-center gap-1.5 mt-4 pt-4 border-t text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
@@ -149,7 +138,6 @@ const Estadios = () => {
           </div>
         )}
 
-        {/* Estado vazio — sem resultados na busca */}
         {!loading && estadios.length > 0 && estadiosFiltrados.length === 0 && (
           <div className="text-center py-20">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-muted mb-6">
@@ -160,7 +148,6 @@ const Estadios = () => {
           </div>
         )}
 
-        {/* Estado vazio — banco vazio */}
         {!loading && estadios.length === 0 && (
           <div className="text-center py-20">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-muted mb-6">
@@ -170,7 +157,6 @@ const Estadios = () => {
             <p className="text-muted-foreground">Os campos de várzea de Diadema aparecerão aqui em breve.</p>
           </div>
         )}
-
       </main>
       <Footer />
     </div>
