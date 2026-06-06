@@ -86,9 +86,9 @@
     /* Gradiente fixo no body — funciona em todas as páginas, light e dark */
     background-image:
       linear-gradient(135deg,
-        rgba(232, 116, 0, 0.08) 0%,
+        rgba(232, 116, 0, 0.18) 0%,
         transparent 45%,
-        rgba(0, 51, 128, 0.08) 100%
+        rgba(0, 51, 128, 0.18) 100%
       );
     background-attachment: fixed;
     background-size: cover;
