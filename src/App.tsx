@@ -8,6 +8,8 @@ import Times from "./pages/Times";
 import Jogos from "./pages/Jogos";
 import Campeonatos from "./pages/Campeonatos";
 import Estadios from "./pages/Estadios";
+import Materias from "./pages/Materias";
+import MateriaDetalhe from "./pages/MateriaDetalhe";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
           <Route path="/jogos" element={<Jogos />} />
           <Route path="/campeonatos" element={<Campeonatos />} />
           <Route path="/estadios" element={<Estadios />} />
+          <Route path="/materias" element={<Materias />} />
+          <Route path="/materias/:id" element={<MateriaDetalhe />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
