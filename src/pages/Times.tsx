@@ -46,7 +46,7 @@ const Times = () => {
       <Header />
       <main className="container mx-auto px-4 py-12">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold mb-3">Times de Várzea</h1>
+          <h1 className="text-4xl font-bold mb-3">Times da Várzea</h1>
           <p className="text-muted-foreground text-lg">
             {times.length} times cadastrados em Diadema
           </p>
