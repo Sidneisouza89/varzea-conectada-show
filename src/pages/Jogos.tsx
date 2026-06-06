@@ -48,7 +48,7 @@ const Jogos = () => {
   return (
     <div className="min-h-screen relative bg-background">
       {/* Gradiente de fundo */}
-      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-orange-500/10 via-background to-blue-900/20 pointer-events-none" />
+      <div className="fixed inset-0 -z-10 bg-gradient-hero opacity-[0.08] pointer-events-none" />
 
       <Header />
       <main className="container mx-auto px-4 py-12">
