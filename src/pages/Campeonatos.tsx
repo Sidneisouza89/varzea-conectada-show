@@ -57,35 +57,32 @@ const Campeonatos = () => {
   const encerrados = campeonatos.filter((c) => !c.ativo).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen relative bg-background">
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-orange-500/10 via-background to-blue-900/20 pointer-events-none" />
+
       <Header />
       <main className="container mx-auto px-4 py-12">
-
-        {/* Hero */}
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
             <Trophy className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-4xl font-bold mb-3">Campeonatos</h1>
-          <p className="text-muted-foreground text-lg">
-            Competições de várzea em Diadema
-          </p>
+          <p className="text-muted-foreground text-lg">Competições de várzea em Diadema</p>
         </div>
 
-        {/* Resumo */}
         {!loading && campeonatos.length > 0 && (
           <div className="flex justify-center gap-4 mb-8 flex-wrap">
-            <div className="flex items-center gap-2 bg-card border rounded-xl px-5 py-3 shadow-sm">
+            <div className="flex items-center gap-2 bg-card/80 backdrop-blur-sm border rounded-xl px-5 py-3 shadow-sm">
               <Star className="w-4 h-4 text-primary" />
               <span className="font-semibold">{campeonatos.length}</span>
               <span className="text-muted-foreground text-sm">Total</span>
             </div>
-            <div className="flex items-center gap-2 bg-card border rounded-xl px-5 py-3 shadow-sm">
+            <div className="flex items-center gap-2 bg-card/80 backdrop-blur-sm border rounded-xl px-5 py-3 shadow-sm">
               <CheckCircle2 className="w-4 h-4 text-green-500" />
               <span className="font-semibold">{ativos}</span>
               <span className="text-muted-foreground text-sm">Ativos</span>
             </div>
-            <div className="flex items-center gap-2 bg-card border rounded-xl px-5 py-3 shadow-sm">
+            <div className="flex items-center gap-2 bg-card/80 backdrop-blur-sm border rounded-xl px-5 py-3 shadow-sm">
               <Clock className="w-4 h-4 text-gray-400" />
               <span className="font-semibold">{encerrados}</span>
               <span className="text-muted-foreground text-sm">Encerrados</span>
@@ -93,10 +90,9 @@ const Campeonatos = () => {
           </div>
         )}
 
-        {/* Filtros */}
         {!loading && campeonatos.length > 0 && (
           <div className="flex justify-center mb-8">
-            <div className="inline-flex rounded-xl border bg-muted p-1 gap-1">
+            <div className="inline-flex rounded-xl border bg-card/80 backdrop-blur-sm p-1 gap-1">
               {(["todos", "ativos", "encerrados"] as const).map((f) => (
                 <button
                   key={f}
@@ -114,11 +110,10 @@ const Campeonatos = () => {
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl border bg-card p-6 shadow-sm animate-pulse">
+              <div key={i} className="rounded-xl border bg-card/80 p-6 shadow-sm animate-pulse">
                 <div className="h-4 bg-muted rounded w-3/4 mb-3" />
                 <div className="h-3 bg-muted rounded w-1/2 mb-6" />
                 <div className="h-8 bg-muted rounded w-full" />
@@ -127,41 +122,29 @@ const Campeonatos = () => {
           </div>
         )}
 
-        {/* Cards */}
         {!loading && campeonatosFiltrados.length > 0 && (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {campeonatosFiltrados.map((c) => (
               <div
                 key={c.campeonato_id}
-                className="rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group"
+                className="rounded-xl border bg-card/80 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group"
               >
-                {/* Header do card */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
                     <Trophy className="w-6 h-6 text-primary" />
                   </div>
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${
-                      c.ativo
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                    }`}
-                  >
-                    {c.ativo ? (
-                      <><Zap className="w-3 h-3" /> Ativo</>
-                    ) : (
-                      <><Clock className="w-3 h-3" /> Encerrado</>
-                    )}
+                  <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${
+                    c.ativo
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  }`}>
+                    {c.ativo ? <><Zap className="w-3 h-3" /> Ativo</> : <><Clock className="w-3 h-3" /> Encerrado</>}
                   </span>
                 </div>
-
-                {/* Nome */}
                 <h3 className="font-bold text-lg mb-1 leading-tight">{c.nome}</h3>
                 <p className="text-sm text-muted-foreground mb-5">
                   {formatoLabel[c.tipo_formato] ?? c.tipo_formato?.replace(/_/g, " ")}
                 </p>
-
-                {/* Pontuação */}
                 <div className="flex gap-2 pt-4 border-t">
                   <div className="flex-1 text-center bg-muted/60 rounded-lg py-2">
                     <p className="text-xs text-muted-foreground mb-0.5">Vitória</p>
@@ -181,7 +164,6 @@ const Campeonatos = () => {
           </div>
         )}
 
-        {/* Estado vazio */}
         {!loading && campeonatosFiltrados.length === 0 && (
           <div className="text-center py-20">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-muted mb-6">
@@ -189,13 +171,11 @@ const Campeonatos = () => {
             </div>
             <h3 className="text-xl font-semibold mb-2">Nenhum campeonato encontrado</h3>
             <p className="text-muted-foreground">
-              {filtro === "todos"
-                ? "Nenhum campeonato cadastrado ainda."
+              {filtro === "todos" ? "Nenhum campeonato cadastrado ainda."
                 : `Não há campeonatos ${filtro === "ativos" ? "ativos" : "encerrados"} no momento.`}
             </p>
           </div>
         )}
-
       </main>
       <Footer />
     </div>
