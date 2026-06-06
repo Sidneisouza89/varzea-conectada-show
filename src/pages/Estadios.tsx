@@ -53,8 +53,7 @@ const Estadios = () => {
   const bairros = [...new Set(estadios.map((e) => e.bairro).filter(Boolean))];
 
   return (
-    <div className="min-h-screen relative bg-background">
-      <div className="fixed inset-0 -z-10 bg-gradient-hero opacity-[0.08] pointer-events-none" />
+    <div className="min-h-screen bg-background bg-page-gradient">
 
       <Header />
       <main className="container mx-auto px-4 py-12">
