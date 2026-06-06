@@ -57,7 +57,7 @@ const Campeonatos = () => {
   const encerrados = campeonatos.filter((c) => !c.ativo).length;
 
   return (
-    <div className="min-h-screen bg-background bg-page-gradient">
+    <div className="min-h-screen bg-background" style={{backgroundImage: "linear-gradient(135deg, rgba(232,116,0,0.12) 0%, transparent 50%, rgba(0,51,128,0.12) 100%)", backgroundAttachment: "fixed"}}>
 
       <Header />
       <main className="container mx-auto px-4 py-12">
