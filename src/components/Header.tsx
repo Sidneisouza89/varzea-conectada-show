@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, Search, User, Activity, X } from "lucide-react";
+import { Menu, Search, User, Activity, X, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "./Logo";
 import LoginModal from "./LoginModal";
@@ -21,7 +21,8 @@ const Header = () => {
 
   const storedUser = localStorage.getItem("varzeando_user");
   const user = storedUser ? JSON.parse(storedUser) : null;
-  const isAdmin = user?.role === "master" || user?.role === "admin";
+  const isAdmin = user?.role === "master" || user?.role === "presidente";
+  const isMonitor = isAdmin || user?.role === "admin";
 
   const handleLogout = () => {
     localStorage.removeItem("varzeando_token");
@@ -50,8 +51,21 @@ const Header = () => {
                     {link.label}
                   </Link>
                 ))}
-                {/* Monitoramento só pro admin, discreto */}
+
+                {/* Painel ADM — só master/presidente */}
                 {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80"
+                    title="Painel Administrativo"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Admin
+                  </Link>
+                )}
+
+                {/* Monitoramento — discreto */}
+                {isMonitor && (
                   <a
                     href={API_ENDPOINTS.monitoring}
                     target="_blank"
@@ -72,10 +86,21 @@ const Header = () => {
               </Button>
 
               {user ? (
-                <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
-                  <User className="h-5 w-5" />
-                  <span className="hidden md:inline">{user.name}</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Badge de role */}
+                  <span className={`hidden md:inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${
+                    user.role === 'master' ? 'bg-primary/10 text-primary' :
+                    user.role === 'presidente' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                    user.role === 'torcedor' ? 'bg-muted text-muted-foreground' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    {user.role}
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
+                    <User className="h-5 w-5" />
+                    <span className="hidden md:inline">{user.name || user.username}</span>
+                  </Button>
+                </div>
               ) : (
                 <Button variant="ghost" size="icon" onClick={() => setLoginOpen(true)}>
                   <User className="h-5 w-5" />
@@ -109,6 +134,16 @@ const Header = () => {
               </Link>
             ))}
             {isAdmin && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-2 text-sm font-medium text-primary py-2"
+                onClick={() => setMobileOpen(false)}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Painel Admin
+              </Link>
+            )}
+            {isMonitor && (
               <a
                 href={API_ENDPOINTS.monitoring}
                 target="_blank"
