@@ -10,6 +10,7 @@ import Campeonatos from "./pages/Campeonatos";
 import Estadios from "./pages/Estadios";
 import Materias from "./pages/Materias";
 import MateriaDetalhe from "./pages/MateriaDetalhe";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/estadios" element={<Estadios />} />
           <Route path="/materias" element={<Materias />} />
           <Route path="/materias/:id" element={<MateriaDetalhe />} />
+          <Route path="/admin" element={<Admin />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
