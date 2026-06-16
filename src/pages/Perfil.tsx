@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
-import { User, ShieldCheck, KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
+import { ShieldCheck, KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
 
 const roleBadgeColor = (role: string) => {
   const cores: Record<string, string> = {
@@ -32,59 +32,47 @@ const Perfil = () => {
   const user = storedUser ? JSON.parse(storedUser) : null;
   const token = localStorage.getItem("varzeando_token");
 
-  // Redireciona se não logado
-  useEffect(() => {
-    if (!user || !token) {
-      navigate("/");
-    }
-  }, []);
-
-  if (!user || !token) return null;
-
+  // TODOS os hooks ANTES de qualquer return condicional
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
 
+  useEffect(() => {
+    if (!user || !token) {
+      navigate("/");
+    }
+  }, []);
+
+  // Return condicional só DEPOIS de todos os hooks
+  if (!user || !token) return null;
+
   const trocarSenha = async () => {
     setMsg(null);
-
     if (!senhaAtual || !novaSenha || !confirmarSenha) {
-      setMsg({ tipo: "erro", texto: "Preencha todos os campos." });
-      return;
+      setMsg({ tipo: "erro", texto: "Preencha todos os campos." }); return;
     }
     if (novaSenha.length < 6) {
-      setMsg({ tipo: "erro", texto: "A nova senha deve ter pelo menos 6 caracteres." });
-      return;
+      setMsg({ tipo: "erro", texto: "A nova senha deve ter pelo menos 6 caracteres." }); return;
     }
     if (novaSenha !== confirmarSenha) {
-      setMsg({ tipo: "erro", texto: "A nova senha e a confirmação não coincidem." });
-      return;
+      setMsg({ tipo: "erro", texto: "A nova senha e a confirmação não coincidem." }); return;
     }
     if (senhaAtual === novaSenha) {
-      setMsg({ tipo: "erro", texto: "A nova senha deve ser diferente da atual." });
-      return;
+      setMsg({ tipo: "erro", texto: "A nova senha deve ser diferente da atual." }); return;
     }
-
     setSalvando(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/trocar-senha`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha }),
       });
-
       const data = await res.json();
-
       if (res.ok) {
         setMsg({ tipo: "ok", texto: "✅ Senha alterada com sucesso!" });
-        setSenhaAtual("");
-        setNovaSenha("");
-        setConfirmarSenha("");
+        setSenhaAtual(""); setNovaSenha(""); setConfirmarSenha("");
       } else {
         setMsg({ tipo: "erro", texto: data.message || data.error || "Erro ao trocar senha." });
       }
@@ -98,14 +86,11 @@ const Perfil = () => {
   const inputClass = "w-full px-4 py-3 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
 
   return (
-    <div
-      className="min-h-screen bg-background"
-      style={{ backgroundImage: "linear-gradient(135deg, rgba(232,116,0,0.12) 0%, transparent 50%, rgba(0,51,128,0.12) 100%)", backgroundAttachment: "fixed" }}
-    >
+    <div className="min-h-screen bg-background"
+      style={{ backgroundImage: "linear-gradient(135deg, rgba(232,116,0,0.12) 0%, transparent 50%, rgba(0,51,128,0.12) 100%)", backgroundAttachment: "fixed" }}>
       <Header />
       <main className="container mx-auto px-4 py-12 max-w-2xl">
 
-        {/* Hero */}
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4 text-primary font-bold text-3xl">
             {user.username[0].toUpperCase()}
@@ -120,72 +105,42 @@ const Perfil = () => {
           )}
         </div>
 
-        {/* Card de troca de senha */}
         <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm p-8">
           <h2 className="font-bold text-lg mb-6 flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-primary" />
-            Trocar Senha
+            <KeyRound className="w-5 h-5 text-primary" /> Trocar Senha
           </h2>
-
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-1.5 block">Senha Atual</label>
-              <input
-                type="password"
-                value={senhaAtual}
-                onChange={(e) => setSenhaAtual(e.target.value)}
-                placeholder="Digite sua senha atual"
-                className={inputClass}
-              />
+              <input type="password" value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)}
+                placeholder="Digite sua senha atual" className={inputClass} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Nova Senha</label>
-              <input
-                type="password"
-                value={novaSenha}
-                onChange={(e) => setNovaSenha(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                className={inputClass}
-              />
+              <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)}
+                placeholder="Mínimo 6 caracteres" className={inputClass} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Confirmar Nova Senha</label>
-              <input
-                type="password"
-                value={confirmarSenha}
-                onChange={(e) => setConfirmarSenha(e.target.value)}
-                placeholder="Repita a nova senha"
-                className={inputClass}
-              />
+              <input type="password" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)}
+                placeholder="Repita a nova senha" className={inputClass} />
             </div>
-
-            {/* Feedback */}
             {msg && (
               <div className={`flex items-center gap-2 text-sm font-medium p-3 rounded-xl ${
-                msg.tipo === "ok"
-                  ? "bg-green-50 text-green-700 dark:bg-green-900/20"
-                  : "bg-red-50 text-red-700 dark:bg-red-900/20"
+                msg.tipo === "ok" ? "bg-green-50 text-green-700 dark:bg-green-900/20" : "bg-red-50 text-red-700 dark:bg-red-900/20"
               }`}>
-                {msg.tipo === "ok"
-                  ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                  : <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                }
+                {msg.tipo === "ok" ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
                 {msg.texto}
               </div>
             )}
-
-            <button
-              onClick={trocarSenha}
-              disabled={salvando}
-              className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-            >
+            <button onClick={trocarSenha} disabled={salvando}
+              className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
               <KeyRound className="w-4 h-4" />
               {salvando ? "Salvando..." : "Alterar Senha"}
             </button>
           </div>
         </div>
 
-        {/* Info sobre MFA */}
         <div className="mt-4 rounded-xl border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
           🔐 Autenticação em dois fatores (MFA) via celular — em breve!
         </div>
