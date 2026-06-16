@@ -47,13 +47,13 @@ const MatchCard = ({
             <div className="text-lg font-bold">{homeTeam}</div>
             <div className="text-sm text-muted-foreground">Casa</div>
           </div>
-
-          {score && (
+          {score ? (
             <div className="mx-4 rounded-lg bg-muted px-4 py-2">
               <div className="text-center text-2xl font-bold">{score}</div>
             </div>
+          ) : (
+            <div className="mx-4 text-muted-foreground font-bold text-xl">VS</div>
           )}
-
           <div className="flex-1 text-right">
             <div className="text-lg font-bold">{awayTeam}</div>
             <div className="text-sm text-muted-foreground">Visitante</div>
@@ -62,10 +62,12 @@ const MatchCard = ({
 
         {/* Location & Time */}
         <div className="space-y-2 border-t pt-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4" />
-            <span>{stadium}</span>
-          </div>
+          {stadium && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{stadium}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
             <span>{time}</span>
