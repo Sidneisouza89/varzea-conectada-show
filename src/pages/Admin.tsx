@@ -38,7 +38,9 @@ const Admin = () => {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingMaterias, setLoadingMaterias] = useState(true);
   const [loadingJogos, setLoadingJogos] = useState(true);
-  const [aba, setAba] = useState<"usuarios"|"materias"|"nova_materia"|"jogos"|"novo_jogo"|"campeonatos"|"novo_campeonato">("usuarios");
+  const [aba, setAba] = useState<"usuarios"|"materias"|"nova_materia"|"jogos"|"novo_jogo"|"campeonatos"|"novo_campeonato">(
+    user?.role === "master" ? "usuarios" : "campeonatos"
+  );
   const [salvando, setSalvando] = useState<number | null>(null);
 
   // Nova matéria
@@ -186,7 +188,8 @@ const Admin = () => {
   };
 
   const abas = [
-    { key: "usuarios", label: "Usuários", icon: Users },
+    // Aba de usuários só para master
+    ...(user?.role === "master" ? [{ key: "usuarios", label: "Usuários", icon: Users }] : []),
     { key: "campeonatos", label: "Campeonatos", icon: Trophy },
     { key: "novo_campeonato", label: "Novo Camp.", icon: PlusCircle },
     { key: "jogos", label: "Jogos", icon: Swords },
@@ -214,7 +217,7 @@ const Admin = () => {
         {/* Resumo */}
         <div className="flex justify-center gap-4 mb-10 flex-wrap">
           {[
-            { icon: Users, count: usuarios.length, label: "Usuários" },
+            ...(user?.role === "master" ? [{ icon: Users, count: usuarios.length, label: "Usuários" }] : []),
             { icon: Trophy, count: campeonatos.length, label: "Campeonatos" },
             { icon: Swords, count: jogos.length, label: "Jogos" },
             { icon: Newspaper, count: materias.length, label: "Matérias" },
