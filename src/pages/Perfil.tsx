@@ -93,9 +93,9 @@ const Perfil = () => {
 
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4 text-primary font-bold text-3xl">
-            {user.username[0].toUpperCase()}
+            {user.name[0].toUpperCase()}
           </div>
-          <h1 className="text-3xl font-bold mb-1">{user.username}</h1>
+          <h1 className="text-3xl font-bold mb-1">{user.name}</h1>
           <span className={`inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full font-medium ${roleBadgeColor(user.role)}`}>
             <ShieldCheck className="w-3.5 h-3.5" />
             {user.role}
