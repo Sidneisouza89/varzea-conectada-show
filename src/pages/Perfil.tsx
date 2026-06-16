@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -33,10 +33,13 @@ const Perfil = () => {
   const token = localStorage.getItem("varzeando_token");
 
   // Redireciona se não logado
-  if (!user || !token) {
-    navigate("/");
-    return null;
-  }
+  useEffect(() => {
+    if (!user || !token) {
+      navigate("/");
+    }
+  }, []);
+
+  if (!user || !token) return null;
 
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
