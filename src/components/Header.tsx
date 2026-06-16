@@ -98,9 +98,12 @@ const Header = () => {
                   }`}>
                     {user.role}
                   </span>
-                  <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
+                  <a href="/perfil" className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors">
                     <User className="h-5 w-5" />
                     <span className="hidden md:inline">{user.name || user.username}</span>
+                  </a>
+                  <Button variant="ghost" size="sm" onClick={handleLogout} className="text-xs text-muted-foreground hover:text-destructive px-2">
+                    Sair
                   </Button>
                 </div>
               ) : (
