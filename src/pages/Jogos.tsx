@@ -12,6 +12,8 @@ interface Jogo {
   campeonato: string;
   data_hora: string;
   status: string;
+  gols_mandante?: number;
+  gols_visitante?: number;
 }
 
 const Jogos = () => {
@@ -47,8 +49,6 @@ const Jogos = () => {
 
   return (
     <div className="min-h-screen bg-background" style={{backgroundImage: "linear-gradient(135deg, rgba(232,116,0,0.12) 0%, transparent 50%, rgba(0,51,128,0.12) 100%)", backgroundAttachment: "fixed"}}>
-      {/* Gradiente de fundo */}
-
       <Header />
       <main className="container mx-auto px-4 py-12">
         <div className="mb-8 text-center">
@@ -69,12 +69,12 @@ const Jogos = () => {
             ))}
           </div>
         ) : (
-          <Tabs defaultValue="finalizados" className="w-full">
+          <Tabs defaultValue="proximos" className="w-full">
             <TabsList className="mb-8 grid w-full max-w-lg mx-auto grid-cols-3 bg-card/80 backdrop-blur-sm">
               <TabsTrigger value="live">
                 Ao Vivo ({jogosAoVivo.length})
               </TabsTrigger>
-              <TabsTrigger value="upcoming">
+              <TabsTrigger value="proximos">
                 Próximos ({jogosProximos.length})
               </TabsTrigger>
               <TabsTrigger value="finalizados">
@@ -88,21 +88,35 @@ const Jogos = () => {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {jogosAoVivo.map((j) => (
-                    <MatchCard key={j.jogo_id} homeTeam={j.mandante} awayTeam={j.visitante}
-                      stadium="" time="Ao vivo" championship={j.campeonato} status="live" />
+                    <MatchCard
+                      key={j.jogo_id}
+                      homeTeam={j.mandante}
+                      awayTeam={j.visitante}
+                      stadium=""
+                      time="Ao vivo"
+                      championship={j.campeonato}
+                      status="live"
+                    />
                   ))}
                 </div>
               )}
             </TabsContent>
 
-            <TabsContent value="upcoming">
+            <TabsContent value="proximos">
               {jogosProximos.length === 0 ? (
                 <p className="text-center text-muted-foreground py-12">Nenhum jogo agendado.</p>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {jogosProximos.map((j) => (
-                    <MatchCard key={j.jogo_id} homeTeam={j.mandante} awayTeam={j.visitante}
-                      stadium="" time={j.data_hora} championship={j.campeonato} status="upcoming" />
+                    <MatchCard
+                      key={j.jogo_id}
+                      homeTeam={j.mandante}
+                      awayTeam={j.visitante}
+                      stadium=""
+                      time={j.data_hora}
+                      championship={j.campeonato}
+                      status="upcoming"
+                    />
                   ))}
                 </div>
               )}
@@ -114,8 +128,20 @@ const Jogos = () => {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {jogosFinaliz.map((j) => (
-                    <MatchCard key={j.jogo_id} homeTeam={j.mandante} awayTeam={j.visitante}
-                      stadium="" time={j.data_hora} championship={j.campeonato} status="upcoming" />
+                    <MatchCard
+                      key={j.jogo_id}
+                      homeTeam={j.mandante}
+                      awayTeam={j.visitante}
+                      stadium=""
+                      time={j.data_hora}
+                      championship={j.campeonato}
+                      status="finished"
+                      score={
+                        j.gols_mandante !== undefined && j.gols_visitante !== undefined
+                          ? `${j.gols_mandante} x ${j.gols_visitante}`
+                          : undefined
+                      }
+                    />
                   ))}
                 </div>
               )}
