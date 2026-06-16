@@ -6,14 +6,7 @@ import Logo from "./Logo";
 import LoginModal from "./LoginModal";
 import { API_ENDPOINTS } from "@/lib/api";
 
-const NAV_LINKS = [
-  { to: "/jogos", label: "Jogos" },
-  { to: "/times", label: "Times" },
-  { to: "/campeonatos", label: "Campeonatos" },
-  { to: "/estadios", label: "Estádios" },
-  { to: "/materias", label: "Matérias" },
-  { to: "/olheiros", label: "Olheiros" },
-];
+const ROLES_OLHEIRO = ["master", "presidente", "olheiro"];
 
 const Header = () => {
   const [loginOpen, setLoginOpen] = useState(false);
@@ -23,12 +16,23 @@ const Header = () => {
   const user = storedUser ? JSON.parse(storedUser) : null;
   const isAdmin = user?.role === "master" || user?.role === "presidente";
   const isMonitor = isAdmin || user?.role === "admin";
+  const podeVerOlheiro = user && ROLES_OLHEIRO.includes(user.role);
 
   const handleLogout = () => {
     localStorage.removeItem("varzeando_token");
     localStorage.removeItem("varzeando_user");
     window.location.reload();
   };
+
+  // Links públicos — Olheiros só aparece pra roles premium
+  const navLinks = [
+    { to: "/jogos", label: "Jogos" },
+    { to: "/times", label: "Times" },
+    { to: "/campeonatos", label: "Campeonatos" },
+    { to: "/estadios", label: "Estádios" },
+    { to: "/materias", label: "Matérias" },
+    ...(podeVerOlheiro ? [{ to: "/olheiros", label: "Olheiros" }] : []),
+  ];
 
   return (
     <>
@@ -42,7 +46,7 @@ const Header = () => {
                 <Logo />
               </Link>
               <nav className="hidden md:flex items-center gap-6">
-                {NAV_LINKS.map((link) => (
+                {navLinks.map((link) => (
                   <Link
                     key={link.to}
                     to={link.to}
@@ -87,12 +91,10 @@ const Header = () => {
 
               {user ? (
                 <div className="flex items-center gap-2">
-                  {/* Badge de role */}
                   <span className={`hidden md:inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${
-                    user.role === 'master' ? 'bg-primary/10 text-primary' :
-                    user.role === 'presidente' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                    user.role === 'torcedor' ? 'bg-muted text-muted-foreground' :
-                    'bg-muted text-muted-foreground'
+                    user.role === "master" ? "bg-primary/10 text-primary" :
+                    user.role === "presidente" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                    "bg-muted text-muted-foreground"
                   }`}>
                     {user.role}
                   </span>
@@ -107,13 +109,7 @@ const Header = () => {
                 </Button>
               )}
 
-              {/* Hamburguer mobile */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileOpen((v) => !v)}
-              >
+              <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen((v) => !v)}>
                 {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
             </div>
@@ -123,7 +119,7 @@ const Header = () => {
         {/* Menu mobile */}
         {mobileOpen && (
           <div className="md:hidden border-t bg-background px-4 py-4 flex flex-col gap-3">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
@@ -134,23 +130,14 @@ const Header = () => {
               </Link>
             ))}
             {isAdmin && (
-              <Link
-                to="/admin"
-                className="flex items-center gap-2 text-sm font-medium text-primary py-2"
-                onClick={() => setMobileOpen(false)}
-              >
+              <Link to="/admin" className="flex items-center gap-2 text-sm font-medium text-primary py-2" onClick={() => setMobileOpen(false)}>
                 <ShieldCheck className="h-4 w-4" />
                 Painel Admin
               </Link>
             )}
             {isMonitor && (
-              <a
-                href={API_ENDPOINTS.monitoring}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm font-medium text-muted-foreground py-2"
-                onClick={() => setMobileOpen(false)}
-              >
+              <a href={API_ENDPOINTS.monitoring} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground py-2" onClick={() => setMobileOpen(false)}>
                 <Activity className="h-4 w-4" />
                 Monitoramento
               </a>
