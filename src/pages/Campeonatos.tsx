@@ -1,8 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import { useEffect, useState } from "react";
-import { Trophy, Zap, CheckCircle2, Clock, Star } from "lucide-react";
+import { Trophy, Zap, CheckCircle2, Clock, Star, ArrowRight } from "lucide-react";
 
 interface Campeonato {
   campeonato_id: number;
@@ -20,6 +21,7 @@ const formatoLabel: Record<string, string> = {
 };
 
 const Campeonatos = () => {
+  const navigate = useNavigate();
   const [campeonatos, setCampeonatos] = useState<Campeonato[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<"todos" | "ativos" | "encerrados">("todos");
@@ -126,7 +128,7 @@ const Campeonatos = () => {
             {campeonatosFiltrados.map((c) => (
               <div
                 key={c.campeonato_id}
-                className="rounded-xl border bg-card/80 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group"
+                className="rounded-xl border bg-card/80 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group flex flex-col"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -140,11 +142,13 @@ const Campeonatos = () => {
                     {c.ativo ? <><Zap className="w-3 h-3" /> Ativo</> : <><Clock className="w-3 h-3" /> Encerrado</>}
                   </span>
                 </div>
+
                 <h3 className="font-bold text-lg mb-1 leading-tight">{c.nome}</h3>
                 <p className="text-sm text-muted-foreground mb-5">
                   {formatoLabel[c.tipo_formato] ?? c.tipo_formato?.replace(/_/g, " ")}
                 </p>
-                <div className="flex gap-2 pt-4 border-t">
+
+                <div className="flex gap-2 pt-4 border-t mb-4">
                   <div className="flex-1 text-center bg-muted/60 rounded-lg py-2">
                     <p className="text-xs text-muted-foreground mb-0.5">Vitória</p>
                     <p className="font-bold text-green-600">{c.pontos_vitoria ?? 3} pts</p>
@@ -158,6 +162,15 @@ const Campeonatos = () => {
                     <p className="font-bold text-red-500">0 pts</p>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => navigate(`/campeonatos/${c.campeonato_id}`)}
+                  className="mt-auto w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
+                >
+                  <Trophy className="w-4 h-4" />
+                  Ver tabela e jogos
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
