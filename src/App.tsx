@@ -8,6 +8,7 @@ import Times from "./pages/Times";
 import TimeDetalhe from "./pages/TimeDetalhe";
 import Jogos from "./pages/Jogos";
 import Campeonatos from "./pages/Campeonatos";
+import CampeonatoDetalhe from "./pages/CampeonatoDetalhe";
 import Estadios from "./pages/Estadios";
 import Materias from "./pages/Materias";
 import MateriaDetalhe from "./pages/MateriaDetalhe";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/times/:id" element={<TimeDetalhe />} />
           <Route path="/jogos" element={<Jogos />} />
           <Route path="/campeonatos" element={<Campeonatos />} />
+          <Route path="/campeonatos/:id" element={<CampeonatoDetalhe />} />
           <Route path="/estadios" element={<Estadios />} />
           <Route path="/materias" element={<Materias />} />
           <Route path="/materias/:id" element={<MateriaDetalhe />} />
