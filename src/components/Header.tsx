@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, Search, User, Activity, X, ShieldCheck } from "lucide-react";
+import { Menu, Search, User, X, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "./Logo";
 import LoginModal from "./LoginModal";
-import { API_ENDPOINTS } from "@/lib/api";
 
 const ROLES_OLHEIRO = ["master", "presidente", "olheiro"];
 
@@ -15,7 +14,6 @@ const Header = () => {
   const storedUser = localStorage.getItem("varzeando_user");
   const user = storedUser ? JSON.parse(storedUser) : null;
   const isAdmin = user?.role === "master" || user?.role === "presidente";
-  const isMonitor = isAdmin || user?.role === "admin";
   const podeVerOlheiro = user && ROLES_OLHEIRO.includes(user.role);
 
   const handleLogout = () => {
@@ -24,7 +22,6 @@ const Header = () => {
     window.location.reload();
   };
 
-  // Links públicos — Olheiros só aparece pra roles premium
   const navLinks = [
     { to: "/jogos", label: "Jogos" },
     { to: "/times", label: "Times" },
@@ -66,19 +63,6 @@ const Header = () => {
                     <ShieldCheck className="h-4 w-4" />
                     Admin
                   </Link>
-                )}
-
-                {/* Monitoramento — discreto */}
-                {isMonitor && (
-                  <a
-                    href={API_ENDPOINTS.monitoring}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive"
-                    title="Grafana - Monitoramento"
-                  >
-                    <Activity className="h-3.5 w-3.5" />
-                  </a>
                 )}
               </nav>
             </div>
@@ -137,13 +121,6 @@ const Header = () => {
                 <ShieldCheck className="h-4 w-4" />
                 Painel Admin
               </Link>
-            )}
-            {isMonitor && (
-              <a href={API_ENDPOINTS.monitoring} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm font-medium text-muted-foreground py-2" onClick={() => setMobileOpen(false)}>
-                <Activity className="h-4 w-4" />
-                Monitoramento
-              </a>
             )}
           </div>
         )}
