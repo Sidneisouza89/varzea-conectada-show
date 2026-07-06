@@ -50,15 +50,15 @@ const Footer = () => {
           <div>
             <h3 className="mb-4 font-bold">Redes Sociais</h3>
             <div className="flex gap-3">
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
+              <a href="https://instagram.com/projeto_varzeando" target="_blank" rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-primary hover:text-primary-foreground">
                 <Instagram className="h-5 w-5" />
               </a>
-              <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer"
+              <a href="https://tiktok.com/@varzeando2026" target="_blank" rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-primary hover:text-primary-foreground">
                 <TikTokIcon />
               </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer"
+              <a href="https://youtube.com/@varzeando-v3i?si=6ae3OjtycQn460ZV" target="_blank" rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-primary hover:text-primary-foreground">
                 <Youtube className="h-5 w-5" />
               </a>
