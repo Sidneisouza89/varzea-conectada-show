@@ -1,8 +1,10 @@
 import { MapPin, Calendar, Trophy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 
 interface MatchCardProps {
+  jogoId: number;
   homeTeam: string;
   awayTeam: string;
   stadium: string;
@@ -13,6 +15,7 @@ interface MatchCardProps {
 }
 
 const MatchCard = ({ 
+  jogoId,
   homeTeam, 
   awayTeam, 
   stadium, 
@@ -21,6 +24,8 @@ const MatchCard = ({
   status,
   score 
 }: MatchCardProps) => {
+  const navigate = useNavigate();
+
   const statusConfig = {
     live: { text: 'AO VIVO', className: 'bg-destructive text-destructive-foreground' },
     upcoming: { text: 'PRÓXIMO', className: 'bg-accent text-accent-foreground' },
@@ -28,7 +33,10 @@ const MatchCard = ({
   };
 
   return (
-    <Card className="group cursor-pointer overflow-hidden transition-base hover:-translate-y-1 hover:shadow-lg">
+    <Card
+      className="group cursor-pointer overflow-hidden transition-base hover:-translate-y-1 hover:shadow-lg"
+      onClick={() => navigate(`/jogos/${jogoId}`)}
+    >
       <CardContent className="p-6">
         {/* Status Badge */}
         <div className="mb-4 flex items-center justify-between">
