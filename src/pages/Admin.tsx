@@ -178,7 +178,7 @@ const Admin = () => {
     if (placarEdit.m === "" || placarEdit.v === "") { alert("Preencha os dois placares."); return; }
     setSalvandoEdit(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/jogos/${jogoId}/finalizar`, {
+      const res = await fetch(`${API_BASE_URL}/api/jogos/${jogoId}/editar-placar`, {
         method: "POST", headers,
         body: JSON.stringify({ gols_mandante: parseInt(placarEdit.m), gols_visitante: parseInt(placarEdit.v) }),
       });
