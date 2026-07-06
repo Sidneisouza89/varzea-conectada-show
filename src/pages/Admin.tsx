@@ -80,6 +80,11 @@ const Admin = () => {
   const [criandoEstadio, setCriandoEstadio] = useState(false);
   const [msgEstadio, setMsgEstadio] = useState("");
 
+  // Editar estádio
+  const [estadioEditando, setEstadioEditando] = useState<Estadio | null>(null);
+  const [estadioEdit, setEstadioEdit] = useState({ nome_oficial: "", apelido: "", bairro: "", cidade: "", estado: "" });
+  const [salvandoEstadio, setSalvandoEstadio] = useState(false);
+
   // Placar rápido (finalizar)
   const [placar, setPlacar] = useState<Record<number, { m: string; v: string }>>({});
   const [finalizando, setFinalizando] = useState<number | null>(null);
@@ -205,6 +210,23 @@ const Admin = () => {
       if (res.ok) { setMsgEstadio("✅ Estádio cadastrado!"); setNovoEstadio({ nome_oficial: "", apelido: "", rua: "", numero: "", bairro: "", cidade: "Diadema", estado: "SP", cep: "" }); fetchEstadios(); setTimeout(() => setAba("estadios"), 1500); }
       else { setMsgEstadio("Erro ao cadastrar estádio."); }
     } finally { setCriandoEstadio(false); }
+  };
+
+  const abrirEdicaoEstadio = (e: Estadio) => {
+    setEstadioEditando(e);
+    setEstadioEdit({ nome_oficial: e.nome_oficial, apelido: e.apelido ?? "", bairro: e.bairro ?? "", cidade: e.cidade, estado: e.estado });
+  };
+
+  const salvarEdicaoEstadio = async () => {
+    if (!estadioEditando) return;
+    setSalvandoEstadio(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/estadios/${estadioEditando.id}`, {
+        method: "PUT", headers, body: JSON.stringify(estadioEdit),
+      });
+      if (res.ok) { setEstadioEditando(null); fetchEstadios(); }
+      else { alert("Erro ao salvar estádio."); }
+    } finally { setSalvandoEstadio(false); }
   };
 
   const finalizarJogo = async (jogoId: number) => {
@@ -504,12 +526,36 @@ const Admin = () => {
               estadios.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum estádio cadastrado.</div> : (
               <div className="divide-y">
                 {estadios.map((e) => (
-                  <div key={e.id} className="flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors">
-                    <div>
-                      <p className="font-medium text-sm">{e.nome_oficial}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{e.apelido && `"${e.apelido}" · `}{e.bairro}{e.bairro && ", "}{e.cidade} - {e.estado}</p>
-                    </div>
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <div key={e.id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
+                    {estadioEditando?.id === e.id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={estadioEdit.nome_oficial} onChange={(ev) => setEstadioEdit(p => ({ ...p, nome_oficial: ev.target.value }))} placeholder="Nome oficial" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          <input value={estadioEdit.apelido} onChange={(ev) => setEstadioEdit(p => ({ ...p, apelido: ev.target.value }))} placeholder="Apelido" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input value={estadioEdit.bairro} onChange={(ev) => setEstadioEdit(p => ({ ...p, bairro: ev.target.value }))} placeholder="Bairro" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          <input value={estadioEdit.cidade} onChange={(ev) => setEstadioEdit(p => ({ ...p, cidade: ev.target.value }))} placeholder="Cidade" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          <input value={estadioEdit.estado} onChange={(ev) => setEstadioEdit(p => ({ ...p, estado: ev.target.value }))} placeholder="UF" maxLength={2} className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={salvarEdicaoEstadio} disabled={salvandoEstadio} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+                            {salvandoEstadio ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                          </button>
+                          <button onClick={() => setEstadioEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{e.nome_oficial}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{e.apelido && `"${e.apelido}" · `}{e.bairro}{e.bairro && ", "}{e.cidade} - {e.estado}</p>
+                        </div>
+                        <button onClick={() => abrirEdicaoEstadio(e)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar estádio">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
