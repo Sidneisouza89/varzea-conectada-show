@@ -71,15 +71,9 @@ const Jogos = () => {
         ) : (
           <Tabs defaultValue="proximos" className="w-full">
             <TabsList className="mb-8 grid w-full max-w-lg mx-auto grid-cols-3 bg-card/80 backdrop-blur-sm">
-              <TabsTrigger value="live">
-                Ao Vivo ({jogosAoVivo.length})
-              </TabsTrigger>
-              <TabsTrigger value="proximos">
-                Próximos ({jogosProximos.length})
-              </TabsTrigger>
-              <TabsTrigger value="finalizados">
-                Finalizados ({jogosFinaliz.length})
-              </TabsTrigger>
+              <TabsTrigger value="live">Ao Vivo ({jogosAoVivo.length})</TabsTrigger>
+              <TabsTrigger value="proximos">Próximos ({jogosProximos.length})</TabsTrigger>
+              <TabsTrigger value="finalizados">Finalizados ({jogosFinaliz.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="live">
@@ -90,6 +84,7 @@ const Jogos = () => {
                   {jogosAoVivo.map((j) => (
                     <MatchCard
                       key={j.jogo_id}
+                      jogoId={j.jogo_id}
                       homeTeam={j.mandante}
                       awayTeam={j.visitante}
                       stadium=""
@@ -110,6 +105,7 @@ const Jogos = () => {
                   {jogosProximos.map((j) => (
                     <MatchCard
                       key={j.jogo_id}
+                      jogoId={j.jogo_id}
                       homeTeam={j.mandante}
                       awayTeam={j.visitante}
                       stadium=""
@@ -130,6 +126,7 @@ const Jogos = () => {
                   {jogosFinaliz.map((j) => (
                     <MatchCard
                       key={j.jogo_id}
+                      jogoId={j.jogo_id}
                       homeTeam={j.mandante}
                       awayTeam={j.visitante}
                       stadium=""
