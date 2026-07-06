@@ -10,7 +10,7 @@ import {
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; data_publicacao: string; }
-interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; }
+interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
 interface Time { id: number; nome_oficial: string; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; ativo: boolean; }
 
@@ -56,18 +56,19 @@ const Admin = () => {
 
   // Novo campeonato
   const [novoCamp, setNovoCamp] = useState({
-    nome: "",
-    tipo_formato: "PONTOS_CORRIDOS",
-    pontos_vitoria: "3",
-    pontos_empate: "1",
-    pontos_derrota: "0",
+    nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0",
   });
   const [criandoCamp, setCriandoCamp] = useState(false);
   const [msgCamp, setMsgCamp] = useState("");
 
-  // Placar rápido
+  // Placar rápido (finalizar)
   const [placar, setPlacar] = useState<Record<number, { m: string; v: string }>>({});
   const [finalizando, setFinalizando] = useState<number | null>(null);
+
+  // Editar placar (jogos finalizados)
+  const [editando, setEditando] = useState<number | null>(null);
+  const [placarEdit, setPlacarEdit] = useState<{ m: string; v: string }>({ m: "", v: "" });
+  const [salvandoEdit, setSalvandoEdit] = useState(false);
 
   useEffect(() => {
     if (!user || (user.role !== "master" && user.role !== "presidente")) navigate("/");
@@ -146,19 +147,14 @@ const Admin = () => {
       const res = await fetch(`${API_BASE_URL}/api/campeonatos`, {
         method: "POST", headers,
         body: JSON.stringify({
-          nome: novoCamp.nome,
-          tipo_formato: novoCamp.tipo_formato,
+          nome: novoCamp.nome, tipo_formato: novoCamp.tipo_formato,
           pontos_vitoria: parseInt(novoCamp.pontos_vitoria),
           pontos_empate: parseInt(novoCamp.pontos_empate),
           pontos_derrota: parseInt(novoCamp.pontos_derrota),
         }),
       });
-      if (res.ok) {
-        setMsgCamp("✅ Campeonato criado com sucesso!");
-        setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" });
-        fetchCampeonatos();
-        setTimeout(() => setAba("campeonatos"), 1500);
-      } else { setMsgCamp("Erro ao criar campeonato."); }
+      if (res.ok) { setMsgCamp("✅ Campeonato criado com sucesso!"); setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" }); fetchCampeonatos(); setTimeout(() => setAba("campeonatos"), 1500); }
+      else { setMsgCamp("Erro ao criar campeonato."); }
     } finally { setCriandoCamp(false); }
   };
 
@@ -172,6 +168,25 @@ const Admin = () => {
     } finally { setFinalizando(null); }
   };
 
+  // Abre edição de placar — pré-preenche com o placar atual
+  const abrirEdicao = (j: Jogo) => {
+    setEditando(j.jogo_id);
+    setPlacarEdit({ m: String(j.gols_mandante ?? 0), v: String(j.gols_visitante ?? 0) });
+  };
+
+  const salvarEdicao = async (jogoId: number) => {
+    if (placarEdit.m === "" || placarEdit.v === "") { alert("Preencha os dois placares."); return; }
+    setSalvandoEdit(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/jogos/${jogoId}/finalizar`, {
+        method: "POST", headers,
+        body: JSON.stringify({ gols_mandante: parseInt(placarEdit.m), gols_visitante: parseInt(placarEdit.v) }),
+      });
+      if (res.ok) { setEditando(null); fetchJogos(); }
+      else { alert("Erro ao salvar placar."); }
+    } finally { setSalvandoEdit(false); }
+  };
+
   const deletarJogo = async (id: number) => {
     if (!confirm("Remover este jogo?")) return;
     const res = await fetch(`${API_BASE_URL}/api/jogos/${id}`, { method: "DELETE", headers });
@@ -180,7 +195,7 @@ const Admin = () => {
 
   const roleBadgeColor = (role: string) => {
     const cores: Record<string, string> = {
-      master: "bg-primary/10 text-primary", presidente: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      master: "bg-primary/10 text-primary", presidente: "bg-blue-100 text-blue-700",
       delegado: "bg-purple-100 text-purple-700", capitao: "bg-green-100 text-green-700",
       olheiro: "bg-yellow-100 text-yellow-700", torcedor: "bg-muted text-muted-foreground",
     };
@@ -188,7 +203,6 @@ const Admin = () => {
   };
 
   const abas = [
-    // Aba de usuários só para master
     ...(user?.role === "master" ? [{ key: "usuarios", label: "Usuários", icon: Users }] : []),
     { key: "campeonatos", label: "Campeonatos", icon: Trophy },
     { key: "novo_campeonato", label: "Novo Camp.", icon: PlusCircle },
@@ -262,7 +276,7 @@ const Admin = () => {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadgeColor(u.role)}`}>{u.role}</span>
                       </div>
                     </div>
-                    {user.role === "master" && u.username !== user.username && (
+                    {user.role === "master" && u.username !== user.name && (
                       <div className="flex items-center gap-2">
                         <select defaultValue={u.role} onChange={(e) => mudarRole(u.id, e.target.value)} disabled={salvando === u.id}
                           className="text-sm border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
@@ -321,22 +335,19 @@ const Admin = () => {
                 <input type="text" value={novoCamp.nome} onChange={(e) => setNovoCamp(p => ({ ...p, nome: e.target.value }))}
                   placeholder="Ex: Copa Elite Diadema 2026" className={inputClass} />
               </div>
-
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Formato</label>
                 <select value={novoCamp.tipo_formato} onChange={(e) => setNovoCamp(p => ({ ...p, tipo_formato: e.target.value }))} className={inputClass}>
                   {FORMATOS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </select>
-                {/* Descrição do formato selecionado */}
                 <p className="text-xs text-muted-foreground mt-1.5">
                   {novoCamp.tipo_formato === "PONTOS_CORRIDOS" && "Todos jogam contra todos. Quem tiver mais pontos no final vence."}
                   {novoCamp.tipo_formato === "MATA_MATA" && "Eliminação direta. Perdeu, saiu. Um jogo por confronto."}
                   {novoCamp.tipo_formato === "GRUPOS_E_MATA_MATA" && "Fase de grupos seguida de mata-mata. Estilo Copa do Mundo."}
                   {novoCamp.tipo_formato === "IDA_E_VOLTA" && "Dois jogos por confronto. O placar agregado decide. Estilo Paulistão."}
-                  {novoCamp.tipo_formato === "PONTOS_CORRIDOS_PLAYOFFS" && "Fase de pontos corridos. Os melhores colocados (ex: top 8) avançam para a chave."}
+                  {novoCamp.tipo_formato === "PONTOS_CORRIDOS_PLAYOFFS" && "Fase de pontos corridos. Os melhores colocados avançam para a chave."}
                 </p>
               </div>
-
               <div className="border rounded-xl p-4 bg-muted/30">
                 <p className="text-sm font-medium mb-3">Pontuação</p>
                 <div className="grid grid-cols-3 gap-3">
@@ -355,16 +366,11 @@ const Admin = () => {
                   ))}
                 </div>
               </div>
-
-              {msgCamp && (
-                <p className={`text-sm font-medium ${msgCamp.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgCamp}</p>
-              )}
-
+              {msgCamp && <p className={`text-sm font-medium ${msgCamp.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgCamp}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={criarCampeonato} disabled={criandoCamp}
                   className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
-                  <Save className="w-4 h-4" />
-                  {criandoCamp ? "Criando..." : "Criar Campeonato"}
+                  <Save className="w-4 h-4" />{criandoCamp ? "Criando..." : "Criar Campeonato"}
                 </button>
                 <button onClick={() => setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" })}
                   className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors">
@@ -400,12 +406,25 @@ const Admin = () => {
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           j.status === "Finalizado" ? "bg-green-100 text-green-700" :
-                          j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : "bg-muted text-muted-foreground"
+                          j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" :
+                          j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" :
+                          j.status === "Em disputa" ? "bg-red-100 text-red-700" :
+                          "bg-muted text-muted-foreground"
                         }`}>{j.status}</span>
+                        {/* Botão editar — disponível para qualquer status */}
+                        <button
+                          onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)}
+                          className="text-muted-foreground hover:text-primary transition-colors"
+                          title="Editar placar"
+                        >
+                          {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+                        </button>
                         <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
-                    {j.status !== "Finalizado" && (
+
+                    {/* Finalizar jogo não finalizado */}
+                    {j.status !== "Finalizado" && editando !== j.jogo_id && (
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
                         <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.m ?? ""}
@@ -420,6 +439,31 @@ const Admin = () => {
                           className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
                           {finalizando === j.jogo_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
                           Finalizar
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Editar placar de jogo já finalizado (ou qualquer status) */}
+                    {editando === j.jogo_id && (
+                      <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                        <Edit3 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
+                        <input type="number" min="0" value={placarEdit.m}
+                          onChange={(e) => setPlacarEdit(p => ({ ...p, m: e.target.value }))}
+                          className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        <span className="text-muted-foreground font-bold">×</span>
+                        <input type="number" min="0" value={placarEdit.v}
+                          onChange={(e) => setPlacarEdit(p => ({ ...p, v: e.target.value }))}
+                          className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
+                        <button onClick={() => salvarEdicao(j.jogo_id)} disabled={salvandoEdit}
+                          className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                          {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                          Salvar
+                        </button>
+                        <button onClick={() => setEditando(null)}
+                          className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">
+                          Cancelar
                         </button>
                       </div>
                     )}
