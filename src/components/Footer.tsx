@@ -1,6 +1,7 @@
 import Logo from "./Logo";
 import { Instagram, Youtube } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import ligaDiademaLogo from "@/assets/parceiro-liga-diadema.png";
 
 // TikTok não existe no lucide-react, usamos SVG customizado
 const TikTokIcon = () => (
@@ -9,9 +10,18 @@ const TikTokIcon = () => (
   </svg>
 );
 
+// Lista de parceiros — adicione novos objetos aqui conforme as parcerias forem fechando
+const parceiros = [
+  {
+    nome: "Liga de Futebol Amador de Diadema",
+    logo: ligaDiademaLogo,
+    link: "#", // troque quando tiverem site/instagram da Liga
+  },
+  // { nome: "Próximo Parceiro", logo: proximoParceiroLogo, link: "https://..." },
+];
+
 const Footer = () => {
   const navigate = useNavigate();
-
   return (
     <footer className="border-t bg-muted/30">
       <div className="container mx-auto px-4 py-12">
@@ -23,7 +33,6 @@ const Footer = () => {
               A plataforma completa para o futebol de várzea. Encontre jogos, acompanhe times e campeonatos.
             </p>
           </div>
-
           {/* Explorar */}
           <div>
             <h3 className="mb-4 font-bold">Explorar</h3>
@@ -34,7 +43,6 @@ const Footer = () => {
               <li><button onClick={() => navigate("/estadios")} className="transition-colors hover:text-primary">Estádios</button></li>
             </ul>
           </div>
-
           {/* Comunidade */}
           <div>
             <h3 className="mb-4 font-bold">Comunidade</h3>
@@ -45,7 +53,6 @@ const Footer = () => {
               <li><a href="#" className="transition-colors hover:text-primary">Contato</a></li>
             </ul>
           </div>
-
           {/* Redes Sociais */}
           <div>
             <h3 className="mb-4 font-bold">Redes Sociais</h3>
@@ -66,12 +73,36 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="mt-12 border-t pt-8 text-center text-sm text-muted-foreground">
+        {/* Parceiros */}
+        <div className="mt-12 border-t pt-8">
+          <h3 className="mb-6 text-center text-sm font-bold uppercase tracking-wide text-muted-foreground">
+            Parceiros
+          </h3>
+          <div className="flex flex-wrap items-center justify-center gap-8">
+            {parceiros.map((parceiro) => (
+              
+                key={parceiro.nome}
+                href={parceiro.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={parceiro.nome}
+                className="grayscale opacity-70 transition-all duration-300 hover:grayscale-0 hover:opacity-100"
+              >
+                <img
+                  src={parceiro.logo}
+                  alt={parceiro.nome}
+                  className="h-16 w-auto object-contain"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
           <p>© 2026 Varzeando. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>
   );
 };
-
 export default Footer;
