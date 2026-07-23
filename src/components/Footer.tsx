@@ -80,7 +80,7 @@ const Footer = () => {
           </h3>
           <div className="flex flex-wrap items-center justify-center gap-8">
             {parceiros.map((parceiro) => (
-              
+              <a
                 key={parceiro.nome}
                 href={parceiro.link}
                 target="_blank"
