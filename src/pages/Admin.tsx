@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
-  Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin
+  Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin, Layers
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
@@ -162,11 +162,6 @@ const Admin = () => {
     if (!campEditNome.trim()) return;
     setSalvandoCamp(true);
     try {
-      // Cria novo campeonato com os dados editados (backend não tem PUT, usa POST e mantém o antigo)
-      // Na prática vamos usar PUT em /api/campeonatos/:id — se não existir no backend, precisaremos adicionar
-      // Por ora usamos PATCH simulado: deletamos e recriamos não é ideal, então vamos chamar endpoint futuro
-      // Usamos o endpoint de edição que ainda não existe — solução: chamar diretamente o banco ou adicionar rota
-      // Solução atual: alerta informativo
       alert("Funcionalidade de editar campeonato requer rota PUT no backend. Adicione a rota /api/campeonatos/<id> com método PUT.");
       setCampEditando(null);
     } finally { setSalvandoCamp(false); }
@@ -374,6 +369,15 @@ const Admin = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{c.ativo ? "Ativo" : "Encerrado"}</span>
+                          {c.tipo_formato === "GRUPOS_E_MATA_MATA" && (
+                            <button
+                              onClick={() => navigate(`/admin/campeonatos/${c.campeonato_id}/grupos`)}
+                              className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
+                              title="Gerenciar Grupos & Mata-Mata"
+                            >
+                              <Layers className="w-3.5 h-3.5" /> Grupos
+                            </button>
+                          )}
                           <button onClick={() => abrirEdicaoCamp(c)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar campeonato"><Edit3 className="w-4 h-4" /></button>
                         </div>
                       </div>
