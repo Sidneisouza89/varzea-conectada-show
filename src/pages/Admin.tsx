@@ -5,13 +5,13 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
-  Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin, Layers
+  Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin, Layers, Shirt
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; }
 interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
-interface Time { id: number; nome_oficial: string; }
+interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
 
@@ -25,7 +25,7 @@ const FORMATOS = [
   { value: "PONTOS_CORRIDOS_PLAYOFFS", label: "Pontos Corridos + Playoffs (top 8 vai à chave)" },
 ];
 
-type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio";
+type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -42,6 +42,7 @@ const Admin = () => {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingMaterias, setLoadingMaterias] = useState(true);
   const [loadingJogos, setLoadingJogos] = useState(true);
+  const [loadingTimes, setLoadingTimes] = useState(true);
   const [loadingEstadios, setLoadingEstadios] = useState(true);
   const [aba, setAba] = useState<Aba>(user?.role === "master" ? "usuarios" : "campeonatos");
   const [salvando, setSalvando] = useState<number | null>(null);
@@ -75,6 +76,11 @@ const Admin = () => {
   const [campEditFormato, setCampEditFormato] = useState("");
   const [salvandoCamp, setSalvandoCamp] = useState(false);
 
+  // Novo time
+  const [novoTimeForm, setNovoTimeForm] = useState({ nome_oficial: "", apelido: "", regiao: "Diadema" });
+  const [criandoTime, setCriandoTime] = useState(false);
+  const [msgTime, setMsgTime] = useState("");
+
   // Novo estádio
   const [novoEstadio, setNovoEstadio] = useState({ nome_oficial: "", apelido: "", rua: "", numero: "", bairro: "", cidade: "Diadema", estado: "SP", cep: "" });
   const [criandoEstadio, setCriandoEstadio] = useState(false);
@@ -103,7 +109,7 @@ const Admin = () => {
   const fetchUsuarios = async () => { setLoadingUsers(true); try { const res = await fetch(`${API_BASE_URL}/api/admin/usuarios`, { headers }); if (res.ok) setUsuarios(await res.json()); } finally { setLoadingUsers(false); } };
   const fetchMaterias = async () => { setLoadingMaterias(true); try { const res = await fetch(`${API_BASE_URL}/api/materias`); if (res.ok) setMaterias(await res.json()); } finally { setLoadingMaterias(false); } };
   const fetchJogos = async () => { setLoadingJogos(true); try { const res = await fetch(`${API_BASE_URL}/api/jogos`); if (res.ok) setJogos(await res.json()); } finally { setLoadingJogos(false); } };
-  const fetchTimes = async () => { const res = await fetch(`${API_BASE_URL}/api/times`); if (res.ok) setTimes(await res.json()); };
+  const fetchTimes = async () => { setLoadingTimes(true); try { const res = await fetch(`${API_BASE_URL}/api/times`); if (res.ok) setTimes(await res.json()); } finally { setLoadingTimes(false); } };
   const fetchCampeonatos = async () => { const res = await fetch(`${API_BASE_URL}/api/campeonatos`); if (res.ok) setCampeonatos(await res.json()); };
   const fetchEstadios = async () => { setLoadingEstadios(true); try { const res = await fetch(`${API_BASE_URL}/api/estadios`); if (res.ok) setEstadios(await res.json()); } finally { setLoadingEstadios(false); } };
 
@@ -197,6 +203,16 @@ const Admin = () => {
     } finally { setCriandoCamp(false); }
   };
 
+  const criarTime = async () => {
+    if (!novoTimeForm.nome_oficial.trim()) { setMsgTime("Preencha o nome oficial do time."); return; }
+    setCriandoTime(true); setMsgTime("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/times`, { method: "POST", headers, body: JSON.stringify(novoTimeForm) });
+      if (res.ok) { setMsgTime("✅ Time cadastrado!"); setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema" }); fetchTimes(); setTimeout(() => setAba("times"), 1500); }
+      else { setMsgTime("Erro ao cadastrar time."); }
+    } finally { setCriandoTime(false); }
+  };
+
   const criarEstadio = async () => {
     if (!novoEstadio.nome_oficial.trim()) { setMsgEstadio("Preencha o nome do estádio."); return; }
     setCriandoEstadio(true); setMsgEstadio("");
@@ -263,6 +279,8 @@ const Admin = () => {
     { key: "novo_campeonato", label: "Novo Camp.", icon: PlusCircle },
     { key: "jogos", label: "Jogos", icon: Swords },
     { key: "novo_jogo", label: "Novo Jogo", icon: Calendar },
+    { key: "times", label: "Times", icon: Shirt },
+    { key: "novo_time", label: "Novo Time", icon: PlusCircle },
     { key: "estadios", label: "Estádios", icon: MapPin },
     { key: "novo_estadio", label: "Novo Estádio", icon: PlusCircle },
     { key: "materias", label: "Matérias", icon: Newspaper },
@@ -288,6 +306,7 @@ const Admin = () => {
             ...(user?.role === "master" ? [{ icon: Users, count: usuarios.length, label: "Usuários" }] : []),
             { icon: Trophy, count: campeonatos.length, label: "Campeonatos" },
             { icon: Swords, count: jogos.length, label: "Jogos" },
+            { icon: Shirt, count: times.length, label: "Times" },
             { icon: MapPin, count: estadios.length, label: "Estádios" },
             { icon: Newspaper, count: materias.length, label: "Matérias" },
           ].map(({ icon: Icon, count, label }) => (
@@ -514,6 +533,52 @@ const Admin = () => {
               <div className="flex gap-3 pt-2">
                 <button onClick={agendarJogo} disabled={agendando} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{agendando ? "Agendando..." : "Agendar Jogo"}</button>
                 <button onClick={() => setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ABA: TIMES */}
+        {aba === "times" && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="font-bold text-lg">Times</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setAba("novo_time")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>
+                <button onClick={fetchTimes} className="text-muted-foreground hover:text-foreground ml-2"><RefreshCw className="w-4 h-4" /></button>
+              </div>
+            </div>
+            {loadingTimes ? <div className="p-8 text-center text-muted-foreground">Carregando...</div> :
+              times.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum time cadastrado.</div> : (
+              <div className="divide-y">
+                {times.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{t.nome_oficial[0]}</div>
+                      <div>
+                        <p className="font-medium text-sm">{t.nome_oficial}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t.apelido && `"${t.apelido}" · `}{t.regiao}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA: NOVO TIME */}
+        {aba === "novo_time" && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
+            <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Shirt className="w-5 h-5 text-primary" /> Cadastrar Novo Time</h2>
+            <div className="space-y-4">
+              <div><label className="text-sm font-medium mb-1.5 block">Nome Oficial *</label><input type="text" value={novoTimeForm.nome_oficial} onChange={(e) => setNovoTimeForm(p => ({ ...p, nome_oficial: e.target.value }))} placeholder="Ex: E.C. Diadema" className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">Apelido</label><input type="text" value={novoTimeForm.apelido} onChange={(e) => setNovoTimeForm(p => ({ ...p, apelido: e.target.value }))} placeholder="Ex: Diadema" className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">Região</label><input type="text" value={novoTimeForm.regiao} onChange={(e) => setNovoTimeForm(p => ({ ...p, regiao: e.target.value }))} className={inputClass} /></div>
+              {msgTime && <p className={`text-sm font-medium ${msgTime.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgTime}</p>}
+              <div className="flex gap-3 pt-2">
+                <button onClick={criarTime} disabled={criandoTime} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoTime ? "Salvando..." : "Cadastrar Time"}</button>
+                <button onClick={() => setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
