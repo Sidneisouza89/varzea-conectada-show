@@ -95,6 +95,11 @@ const Admin = () => {
   const [criandoTime, setCriandoTime] = useState(false);
   const [msgTime, setMsgTime] = useState("");
 
+  // Editar time
+  const [timeEditando, setTimeEditando] = useState<Time | null>(null);
+  const [timeEdit, setTimeEdit] = useState({ nome_oficial: "", apelido: "", regiao: "" });
+  const [salvandoTime, setSalvandoTime] = useState(false);
+
   // Novo estádio
   const [novoEstadio, setNovoEstadio] = useState({ nome_oficial: "", apelido: "", rua: "", numero: "", bairro: "", cidade: "Diadema", estado: "SP", cep: "" });
   const [criandoEstadio, setCriandoEstadio] = useState(false);
@@ -251,6 +256,23 @@ const Admin = () => {
     } catch (err) {
       setMsgTime("Erro de conexão ao cadastrar time.");
     } finally { setCriandoTime(false); }
+  };
+
+  const abrirEdicaoTime = (t: Time) => {
+    setTimeEditando(t);
+    setTimeEdit({ nome_oficial: t.nome_oficial, apelido: t.apelido ?? "", regiao: t.regiao ?? "" });
+  };
+
+  const salvarEdicaoTime = async () => {
+    if (!timeEditando) return;
+    setSalvandoTime(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/times/${timeEditando.id}`, { method: "PUT", headers, body: JSON.stringify(timeEdit) });
+      if (res.ok) { setTimeEditando(null); fetchTimes(); }
+      else { alert(await extrairMensagemErro(res, "Erro ao salvar time.")); }
+    } catch (err) {
+      alert("Erro de conexão ao salvar time.");
+    } finally { setSalvandoTime(false); }
   };
 
   const criarEstadio = async () => {
@@ -613,14 +635,35 @@ const Admin = () => {
               times.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum time cadastrado.</div> : (
               <div className="divide-y">
                 {times.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{t.nome_oficial[0]}</div>
-                      <div>
-                        <p className="font-medium text-sm">{t.nome_oficial}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{t.apelido && `"${t.apelido}" · `}{t.regiao}</p>
+                  <div key={t.id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
+                    {timeEditando?.id === t.id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={timeEdit.nome_oficial} onChange={(ev) => setTimeEdit(p => ({ ...p, nome_oficial: ev.target.value }))} placeholder="Nome oficial" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          <input value={timeEdit.apelido} onChange={(ev) => setTimeEdit(p => ({ ...p, apelido: ev.target.value }))} placeholder="Apelido" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        </div>
+                        <input value={timeEdit.regiao} onChange={(ev) => setTimeEdit(p => ({ ...p, regiao: ev.target.value }))} placeholder="Região" className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        <div className="flex gap-2">
+                          <button onClick={salvarEdicaoTime} disabled={salvandoTime} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+                            {salvandoTime ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                          </button>
+                          <button onClick={() => setTimeEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted">Cancelar</button>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{t.nome_oficial[0]}</div>
+                          <div>
+                            <p className="font-medium text-sm">{t.nome_oficial}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{t.apelido && `"${t.apelido}" · `}{t.regiao}</p>
+                          </div>
+                        </div>
+                        <button onClick={() => abrirEdicaoTime(t)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar time">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -767,4 +810,23 @@ const Admin = () => {
         {/* ABA: EDITAR MATÉRIA */}
         {aba === "editar_materia" && materiaEditando && (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
-            <h2 className="font-bold text-lg
+            <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> Editar Matéria</h2>
+            <div className="space-y-4">
+              <div><label className="text-sm font-medium mb-1.5 block">Título</label><input type="text" value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} /></div>
+              {msgEditMateria && <p className={`text-sm font-medium ${msgEditMateria.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgEditMateria}</p>}
+              <div className="flex gap-3 pt-2">
+                <button onClick={salvarEdicaoMateria} disabled={salvandoMateria} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{salvandoMateria ? "Salvando..." : "Salvar Alterações"}</button>
+                <button onClick={() => { setAba("materias"); setMateriaEditando(null); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Cancelar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Admin;
