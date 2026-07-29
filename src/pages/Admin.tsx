@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
   Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin, Layers, Shirt
@@ -27,7 +27,7 @@ const FORMATOS = [
 
 type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio";
 
-// Mensagem padrão quando a sessão expira (token JWT com validade de 2h)
+// Mensagem padrão quando a sessão expira de vez (falha até na tentativa de refresh)
 const SESSION_EXPIRED_MSG = "Sua sessão expirou. Saia e entre novamente no Admin para continuar.";
 
 // Extrai uma mensagem de erro amigável a partir da resposta da API
@@ -35,7 +35,7 @@ const extrairMensagemErro = async (res: Response, fallback: string) => {
   if (res.status === 401) return SESSION_EXPIRED_MSG;
   try {
     const data = await res.json();
-    return data.message || data.error || fallback;
+    return data.message || data.error || data.msg || fallback;
   } catch {
     return fallback;
   }
@@ -45,7 +45,6 @@ const Admin = () => {
   const navigate = useNavigate();
   const storedUser = localStorage.getItem("varzeando_user");
   const user = storedUser ? JSON.parse(storedUser) : null;
-  const token = localStorage.getItem("varzeando_token");
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [materias, setMaterias] = useState<Materia[]>([]);
@@ -123,9 +122,13 @@ const Admin = () => {
     if (!user || (user.role !== "master" && user.role !== "presidente")) navigate("/");
   }, []);
 
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-
-  const fetchUsuarios = async () => { setLoadingUsers(true); try { const res = await fetch(`${API_BASE_URL}/api/admin/usuarios`, { headers }); if (res.ok) setUsuarios(await res.json()); } finally { setLoadingUsers(false); } };
+  const fetchUsuarios = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/usuarios`);
+      if (res.ok) setUsuarios(await res.json());
+    } finally { setLoadingUsers(false); }
+  };
   const fetchMaterias = async () => { setLoadingMaterias(true); try { const res = await fetch(`${API_BASE_URL}/api/materias`); if (res.ok) setMaterias(await res.json()); } finally { setLoadingMaterias(false); } };
   const fetchJogos = async () => { setLoadingJogos(true); try { const res = await fetch(`${API_BASE_URL}/api/jogos`); if (res.ok) setJogos(await res.json()); } finally { setLoadingJogos(false); } };
   const fetchTimes = async () => { setLoadingTimes(true); try { const res = await fetch(`${API_BASE_URL}/api/times`); if (res.ok) setTimes(await res.json()); } finally { setLoadingTimes(false); } };
@@ -137,7 +140,7 @@ const Admin = () => {
   const mudarRole = async (userId: number, novoRole: string) => {
     setSalvando(userId);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/usuarios/${userId}/role`, { method: "PUT", headers, body: JSON.stringify({ role: novoRole }) });
+      const res = await authFetch(`${API_BASE_URL}/api/admin/usuarios/${userId}/role`, { method: "PUT", body: JSON.stringify({ role: novoRole }) });
       if (res.ok) {
         setUsuarios((prev) => prev.map((u) => u.id === userId ? { ...u, role: novoRole } : u));
       } else {
@@ -151,7 +154,7 @@ const Admin = () => {
   const deletarMateria = async (id: number) => {
     if (!confirm("Remover esta matéria?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/materias/${id}`, { method: "DELETE", headers });
+      const res = await authFetch(`${API_BASE_URL}/api/materias/${id}`, { method: "DELETE" });
       if (res.ok) {
         setMaterias((prev) => prev.filter((m) => m.materia_id !== id));
       } else {
@@ -175,8 +178,8 @@ const Admin = () => {
     if (!editTitulo.trim() || !editConteudo.trim()) { setMsgEditMateria("Preencha título e conteúdo."); return; }
     setSalvandoMateria(true); setMsgEditMateria("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/materias/${materiaEditando.materia_id}`, {
-        method: "PUT", headers, body: JSON.stringify({ titulo: editTitulo, conteudo: editConteudo }),
+      const res = await authFetch(`${API_BASE_URL}/api/materias/${materiaEditando.materia_id}`, {
+        method: "PUT", body: JSON.stringify({ titulo: editTitulo, conteudo: editConteudo }),
       });
       if (res.ok) { setMsgEditMateria("✅ Matéria atualizada!"); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
       else { setMsgEditMateria(await extrairMensagemErro(res, "Erro ao salvar.")); }
@@ -189,7 +192,7 @@ const Admin = () => {
     if (!novoTitulo.trim() || !novoConteudo.trim()) { setMsgPublicacao("Preencha título e conteúdo."); return; }
     setPublicando(true); setMsgPublicacao("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/materias`, { method: "POST", headers, body: JSON.stringify({ titulo: novoTitulo, conteudo: novoConteudo }) });
+      const res = await authFetch(`${API_BASE_URL}/api/materias`, { method: "POST", body: JSON.stringify({ titulo: novoTitulo, conteudo: novoConteudo }) });
       if (res.ok) { setMsgPublicacao("✅ Matéria publicada!"); setNovoTitulo(""); setNovoConteudo(""); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
       else { setMsgPublicacao(await extrairMensagemErro(res, "Erro ao publicar.")); }
     } catch (err) {
@@ -207,8 +210,13 @@ const Admin = () => {
     if (!campEditNome.trim()) return;
     setSalvandoCamp(true);
     try {
-      alert("Funcionalidade de editar campeonato requer rota PUT no backend. Adicione a rota /api/campeonatos/<id> com método PUT.");
-      setCampEditando(null);
+      const res = await authFetch(`${API_BASE_URL}/api/campeonatos/${campId}`, {
+        method: "PUT", body: JSON.stringify({ nome: campEditNome, tipo_formato: campEditFormato }),
+      });
+      if (res.ok) { setCampEditando(null); fetchCampeonatos(); }
+      else { alert(await extrairMensagemErro(res, "Erro ao salvar campeonato.")); }
+    } catch (err) {
+      alert("Erro de conexão ao salvar campeonato.");
     } finally { setSalvandoCamp(false); }
   };
 
@@ -217,8 +225,8 @@ const Admin = () => {
     if (novoJogo.time_mandante_id === novoJogo.time_visitante_id) { setMsgJogo("Mandante e visitante não podem ser o mesmo time."); return; }
     setAgendando(true); setMsgJogo("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/jogos`, {
-        method: "POST", headers,
+      const res = await authFetch(`${API_BASE_URL}/api/jogos`, {
+        method: "POST",
         body: JSON.stringify({
           campeonato_id: novoJogo.campeonato_id ? parseInt(novoJogo.campeonato_id) : null,
           time_mandante_id: parseInt(novoJogo.time_mandante_id),
@@ -238,7 +246,7 @@ const Admin = () => {
     if (!novoCamp.nome.trim()) { setMsgCamp("Preencha o nome do campeonato."); return; }
     setCriandoCamp(true); setMsgCamp("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/campeonatos`, { method: "POST", headers, body: JSON.stringify({ nome: novoCamp.nome, tipo_formato: novoCamp.tipo_formato, pontos_vitoria: parseInt(novoCamp.pontos_vitoria), pontos_empate: parseInt(novoCamp.pontos_empate), pontos_derrota: parseInt(novoCamp.pontos_derrota) }) });
+      const res = await authFetch(`${API_BASE_URL}/api/campeonatos`, { method: "POST", body: JSON.stringify({ nome: novoCamp.nome, tipo_formato: novoCamp.tipo_formato, pontos_vitoria: parseInt(novoCamp.pontos_vitoria), pontos_empate: parseInt(novoCamp.pontos_empate), pontos_derrota: parseInt(novoCamp.pontos_derrota) }) });
       if (res.ok) { setMsgCamp("✅ Campeonato criado!"); setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" }); fetchCampeonatos(); setTimeout(() => setAba("campeonatos"), 1500); }
       else { setMsgCamp(await extrairMensagemErro(res, "Erro ao criar campeonato.")); }
     } catch (err) {
@@ -250,7 +258,7 @@ const Admin = () => {
     if (!novoTimeForm.nome_oficial.trim()) { setMsgTime("Preencha o nome oficial do time."); return; }
     setCriandoTime(true); setMsgTime("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/times`, { method: "POST", headers, body: JSON.stringify(novoTimeForm) });
+      const res = await authFetch(`${API_BASE_URL}/api/times`, { method: "POST", body: JSON.stringify(novoTimeForm) });
       if (res.ok) { setMsgTime("✅ Time cadastrado!"); setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema" }); fetchTimes(); setTimeout(() => setAba("times"), 1500); }
       else { setMsgTime(await extrairMensagemErro(res, "Erro ao cadastrar time.")); }
     } catch (err) {
@@ -267,7 +275,7 @@ const Admin = () => {
     if (!timeEditando) return;
     setSalvandoTime(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/times/${timeEditando.id}`, { method: "PUT", headers, body: JSON.stringify(timeEdit) });
+      const res = await authFetch(`${API_BASE_URL}/api/times/${timeEditando.id}`, { method: "PUT", body: JSON.stringify(timeEdit) });
       if (res.ok) { setTimeEditando(null); fetchTimes(); }
       else { alert(await extrairMensagemErro(res, "Erro ao salvar time.")); }
     } catch (err) {
@@ -279,7 +287,7 @@ const Admin = () => {
     if (!novoEstadio.nome_oficial.trim()) { setMsgEstadio("Preencha o nome do estádio."); return; }
     setCriandoEstadio(true); setMsgEstadio("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/estadios`, { method: "POST", headers, body: JSON.stringify(novoEstadio) });
+      const res = await authFetch(`${API_BASE_URL}/api/estadios`, { method: "POST", body: JSON.stringify(novoEstadio) });
       if (res.ok) { setMsgEstadio("✅ Estádio cadastrado!"); setNovoEstadio({ nome_oficial: "", apelido: "", rua: "", numero: "", bairro: "", cidade: "Diadema", estado: "SP", cep: "" }); fetchEstadios(); setTimeout(() => setAba("estadios"), 1500); }
       else { setMsgEstadio(await extrairMensagemErro(res, "Erro ao cadastrar estádio.")); }
     } catch (err) {
@@ -296,8 +304,8 @@ const Admin = () => {
     if (!estadioEditando) return;
     setSalvandoEstadio(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/estadios/${estadioEditando.id}`, {
-        method: "PUT", headers, body: JSON.stringify(estadioEdit),
+      const res = await authFetch(`${API_BASE_URL}/api/estadios/${estadioEditando.id}`, {
+        method: "PUT", body: JSON.stringify(estadioEdit),
       });
       if (res.ok) { setEstadioEditando(null); fetchEstadios(); }
       else { alert(await extrairMensagemErro(res, "Erro ao salvar estádio.")); }
@@ -311,7 +319,7 @@ const Admin = () => {
     if (!p || p.m === "" || p.v === "") { alert("Preencha o placar antes de finalizar."); return; }
     setFinalizando(jogoId);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/jogos/${jogoId}/finalizar`, { method: "POST", headers, body: JSON.stringify({ gols_mandante: parseInt(p.m), gols_visitante: parseInt(p.v) }) });
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/finalizar`, { method: "POST", body: JSON.stringify({ gols_mandante: parseInt(p.m), gols_visitante: parseInt(p.v) }) });
       if (res.ok) {
         fetchJogos();
         setPlacar((prev) => { const n = { ...prev }; delete n[jogoId]; return n; });
@@ -329,7 +337,7 @@ const Admin = () => {
     if (placarEdit.m === "" || placarEdit.v === "") { alert("Preencha os dois placares."); return; }
     setSalvandoEdit(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/jogos/${jogoId}/editar-placar`, { method: "POST", headers, body: JSON.stringify({ gols_mandante: parseInt(placarEdit.m), gols_visitante: parseInt(placarEdit.v) }) });
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/editar-placar`, { method: "POST", body: JSON.stringify({ gols_mandante: parseInt(placarEdit.m), gols_visitante: parseInt(placarEdit.v) }) });
       if (res.ok) { setEditando(null); fetchJogos(); }
       else { alert(await extrairMensagemErro(res, "Erro ao salvar placar.")); }
     } catch (err) {
@@ -340,7 +348,7 @@ const Admin = () => {
   const deletarJogo = async (id: number) => {
     if (!confirm("Remover este jogo?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/jogos/${id}`, { method: "DELETE", headers });
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${id}`, { method: "DELETE" });
       if (res.ok) {
         setJogos((prev) => prev.filter((j) => j.jogo_id !== id));
       } else {
