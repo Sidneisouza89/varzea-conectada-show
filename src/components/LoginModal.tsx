@@ -31,6 +31,7 @@ const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
         }
       );
       localStorage.setItem("varzeando_token", data.access_token);
+      localStorage.setItem("varzeando_refresh_token", data.refresh_token);
       localStorage.setItem("varzeando_user", JSON.stringify({ name: data.user, role: data.role }));
       toast({ title: "Login realizado!", description: `Bem-vindo ao Varzeando!` });
       onOpenChange(false);
