@@ -1,5 +1,5 @@
 // Configuração centralizada da API
-export const API_BASE_URL = 'https://projetovarzeandobackend-production.up.railway.app';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://projetovarzeandobackend-production.up.railway.app';
 export const API_ENDPOINTS = {
   auth: {
     login: `${API_BASE_URL}/api/auth/login`,
