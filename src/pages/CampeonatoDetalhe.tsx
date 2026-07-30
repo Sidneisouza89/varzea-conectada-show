@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   Trophy, ArrowLeft, Shield, Swords, TrendingUp,
-  CheckCircle2, Minus, XCircle, Calendar
+  CheckCircle2, Minus, XCircle, Calendar, LayoutGrid, ListOrdered
 } from "lucide-react";
 
 interface TimeTabela {
@@ -49,9 +49,10 @@ const CampeonatoDetalhe = () => {
   const navigate = useNavigate();
 
   const [campeonato, setCampeonato] = useState<Campeonato | null>(null);
-  const [tabela, setTabela] = useState<TimeTabela[]>([]);
+  const [tabelaGeral, setTabelaGeral] = useState<TimeTabela[]>([]);
   const [grupos, setGrupos] = useState<Record<string, TimeGrupo[]>>({});
   const [temGrupos, setTemGrupos] = useState(false);
+  const [visaoTabela, setVisaoTabela] = useState<"grupos" | "geral">("grupos");
   const [jogos, setJogos] = useState<Jogo[]>([]);
   const [aba, setAba] = useState<"tabela" | "jogos">("tabela");
   const [loading, setLoading] = useState(true);
@@ -59,28 +60,25 @@ const CampeonatoDetalhe = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Tenta primeiro a classificação por grupos (Chave A/B etc.)
-        const resGrupos = await fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao-grupos`);
-        let usandoGrupos = false;
+        // Busca classificação por grupos e classificação geral em paralelo
+        const [resGrupos, resClass] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao-grupos`),
+          fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao`),
+        ]);
+
         if (resGrupos.ok) {
           const dataGrupos = await resGrupos.json();
           const chaves = Object.keys(dataGrupos.grupos || {});
           if (chaves.length > 0) {
             setGrupos(dataGrupos.grupos);
             setTemGrupos(true);
-            usandoGrupos = true;
-            setCampeonato((prev) => prev ?? { campeonato_id: Number(id), nome: dataGrupos.campeonato, tipo_formato: "", pontos_vitoria: 3, pontos_empate: 1, ativo: true });
           }
         }
 
-        // Se não há grupos configurados, cai na classificação única (comportamento de sempre)
-        if (!usandoGrupos) {
-          const resClass = await fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao`);
-          if (resClass.ok) {
-            const dataClass = await resClass.json();
-            setCampeonato((prev) => prev ?? { campeonato_id: Number(id), nome: dataClass.campeonato, tipo_formato: "", pontos_vitoria: 3, pontos_empate: 1, ativo: true });
-            setTabela(dataClass.tabela);
-          }
+        if (resClass.ok) {
+          const dataClass = await resClass.json();
+          setTabelaGeral(dataClass.tabela);
+          setCampeonato((prev) => prev ?? { campeonato_id: Number(id), nome: dataClass.campeonato, tipo_formato: "", pontos_vitoria: 3, pontos_empate: 1, ativo: true });
         }
 
         // Busca todos os jogos e filtra pelo campeonato
@@ -228,8 +226,8 @@ const CampeonatoDetalhe = () => {
           </div>
         )}
 
-        {/* Abas */}
-        <div className="flex gap-1 bg-muted/50 rounded-xl p-1 mb-8 w-fit">
+        {/* Abas principais */}
+        <div className="flex gap-1 bg-muted/50 rounded-xl p-1 mb-4 w-fit">
           <button
             onClick={() => setAba("tabela")}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${aba === "tabela" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -244,6 +242,24 @@ const CampeonatoDetalhe = () => {
           </button>
         </div>
 
+        {/* Sub-seletor: Por Grupo x Geral (só aparece se o campeonato tiver grupos) */}
+        {aba === "tabela" && temGrupos && !loading && (
+          <div className="flex gap-1 mb-6 w-fit border rounded-lg p-1 bg-card/60">
+            <button
+              onClick={() => setVisaoTabela("grupos")}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium transition-all ${visaoTabela === "grupos" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Por Grupo
+            </button>
+            <button
+              onClick={() => setVisaoTabela("geral")}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium transition-all ${visaoTabela === "geral" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <ListOrdered className="w-3.5 h-3.5" /> Geral
+            </button>
+          </div>
+        )}
+
         {/* TABELA DE CLASSIFICAÇÃO */}
         {aba === "tabela" && (
           <>
@@ -251,7 +267,7 @@ const CampeonatoDetalhe = () => {
               <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm p-8 space-y-3">
                 {[1,2,3,4].map(i => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}
               </div>
-            ) : temGrupos ? (
+            ) : temGrupos && visaoTabela === "grupos" ? (
               // MODO GRUPOS: uma tabela por chave, lado a lado em telas maiores
               <div className="grid gap-6 md:grid-cols-2">
                 {Object.entries(grupos).map(([nomeGrupo, times]) => (
@@ -272,7 +288,7 @@ const CampeonatoDetalhe = () => {
                   </div>
                 ))}
               </div>
-            ) : tabela.length === 0 ? (
+            ) : tabelaGeral.length === 0 ? (
               <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm py-20 text-center">
                 <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground">Nenhum jogo finalizado ainda.</p>
@@ -280,7 +296,7 @@ const CampeonatoDetalhe = () => {
               </div>
             ) : (
               <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
-                {renderTabelaGenerica(tabela)}
+                {renderTabelaGenerica(tabelaGeral)}
               </div>
             )}
           </>
