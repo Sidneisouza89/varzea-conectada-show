@@ -20,6 +20,10 @@ interface TimeTabela {
   sg: number;
 }
 
+interface TimeGrupo extends TimeTabela {
+  time_id: number;
+}
+
 interface Jogo {
   jogo_id: number;
   mandante: string;
@@ -46,6 +50,8 @@ const CampeonatoDetalhe = () => {
 
   const [campeonato, setCampeonato] = useState<Campeonato | null>(null);
   const [tabela, setTabela] = useState<TimeTabela[]>([]);
+  const [grupos, setGrupos] = useState<Record<string, TimeGrupo[]>>({});
+  const [temGrupos, setTemGrupos] = useState(false);
   const [jogos, setJogos] = useState<Jogo[]>([]);
   const [aba, setAba] = useState<"tabela" | "jogos">("tabela");
   const [loading, setLoading] = useState(true);
@@ -53,12 +59,28 @@ const CampeonatoDetalhe = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Busca classificação
-        const resClass = await fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao`);
-        if (resClass.ok) {
-          const dataClass = await resClass.json();
-          setCampeonato({ campeonato_id: Number(id), nome: dataClass.campeonato, tipo_formato: "", pontos_vitoria: 3, pontos_empate: 1, ativo: true });
-          setTabela(dataClass.tabela);
+        // Tenta primeiro a classificação por grupos (Chave A/B etc.)
+        const resGrupos = await fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao-grupos`);
+        let usandoGrupos = false;
+        if (resGrupos.ok) {
+          const dataGrupos = await resGrupos.json();
+          const chaves = Object.keys(dataGrupos.grupos || {});
+          if (chaves.length > 0) {
+            setGrupos(dataGrupos.grupos);
+            setTemGrupos(true);
+            usandoGrupos = true;
+            setCampeonato((prev) => prev ?? { campeonato_id: Number(id), nome: dataGrupos.campeonato, tipo_formato: "", pontos_vitoria: 3, pontos_empate: 1, ativo: true });
+          }
+        }
+
+        // Se não há grupos configurados, cai na classificação única (comportamento de sempre)
+        if (!usandoGrupos) {
+          const resClass = await fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao`);
+          if (resClass.ok) {
+            const dataClass = await resClass.json();
+            setCampeonato((prev) => prev ?? { campeonato_id: Number(id), nome: dataClass.campeonato, tipo_formato: "", pontos_vitoria: 3, pontos_empate: 1, ativo: true });
+            setTabela(dataClass.tabela);
+          }
         }
 
         // Busca todos os jogos e filtra pelo campeonato
@@ -71,7 +93,7 @@ const CampeonatoDetalhe = () => {
         });
         if (resJogos.ok) {
           const dataJogos: Jogo[] = await resJogos.json();
-          // Busca o nome do campeonato para filtrar
+          // Busca o nome/status do campeonato pra completar o header e filtrar
           const resC = await fetch(`${API_BASE_URL}/api/campeonatos`);
           if (resC.ok) {
             const camps: Campeonato[] = await resC.json();
@@ -95,6 +117,78 @@ const CampeonatoDetalhe = () => {
 
   const jogosFinaliz = jogos.filter(j => j.status === "Finalizado");
   const jogosProximos = jogos.filter(j => j.status === "Agendado");
+
+  const renderTabelaGenerica = (lista: (TimeTabela | TimeGrupo)[]) => (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b bg-muted/40">
+          <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
+          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Time</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PJ</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">V</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">E</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">D</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GP</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GC</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">SG</th>
+          <th className="px-4 py-3 font-semibold text-muted-foreground text-center">PTS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {lista.map((time, idx) => (
+          <tr
+            key={time.nome}
+            className={`border-b last:border-0 transition-colors hover:bg-muted/30 ${idx === 0 ? "bg-primary/5" : ""}`}
+          >
+            <td className="px-4 py-3">
+              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                idx === 0 ? "bg-primary text-white" :
+                idx === 1 ? "bg-blue-100 text-blue-700" :
+                idx === 2 ? "bg-orange-100 text-orange-700" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {idx + 1}
+              </span>
+            </td>
+            <td className="px-4 py-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                  {time.nome[0]}
+                </div>
+                <span className="font-medium">{time.nome}</span>
+              </div>
+            </td>
+            <td className="px-3 py-3 text-center text-muted-foreground">{time.pj}</td>
+            <td className="px-3 py-3 text-center">
+              <span className="flex items-center justify-center gap-0.5 text-green-600 font-medium">
+                <CheckCircle2 className="w-3 h-3" />{time.v}
+              </span>
+            </td>
+            <td className="px-3 py-3 text-center">
+              <span className="flex items-center justify-center gap-0.5 text-yellow-600 font-medium">
+                <Minus className="w-3 h-3" />{time.e}
+              </span>
+            </td>
+            <td className="px-3 py-3 text-center">
+              <span className="flex items-center justify-center gap-0.5 text-red-500 font-medium">
+                <XCircle className="w-3 h-3" />{time.d}
+              </span>
+            </td>
+            <td className="px-3 py-3 text-center text-muted-foreground">{time.gp}</td>
+            <td className="px-3 py-3 text-center text-muted-foreground">{time.gc}</td>
+            <td className="px-3 py-3 text-center">
+              <span className={`font-medium ${time.sg > 0 ? "text-green-600" : time.sg < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                {time.sg > 0 ? `+${time.sg}` : time.sg}
+              </span>
+            </td>
+            <td className="px-4 py-3 text-center">
+              <span className="font-bold text-lg text-primary">{time.pts}</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 
   return (
     <div
@@ -126,7 +220,9 @@ const CampeonatoDetalhe = () => {
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${campeonato?.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
                   {campeonato?.ativo ? "Ativo" : "Encerrado"}
                 </span>
-                <span className="text-sm text-muted-foreground">Pontos Corridos</span>
+                <span className="text-sm text-muted-foreground">
+                  {temGrupos ? "Fase de Grupos" : "Pontos Corridos"}
+                </span>
               </div>
             </div>
           </div>
@@ -150,89 +246,44 @@ const CampeonatoDetalhe = () => {
 
         {/* TABELA DE CLASSIFICAÇÃO */}
         {aba === "tabela" && (
-          <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+          <>
             {loading ? (
-              <div className="p-8 space-y-3">
+              <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm p-8 space-y-3">
                 {[1,2,3,4].map(i => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}
               </div>
+            ) : temGrupos ? (
+              // MODO GRUPOS: uma tabela por chave, lado a lado em telas maiores
+              <div className="grid gap-6 md:grid-cols-2">
+                {Object.entries(grupos).map(([nomeGrupo, times]) => (
+                  <div key={nomeGrupo} className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b bg-muted/30">
+                      <h3 className="font-bold text-sm">Grupo {nomeGrupo}</h3>
+                    </div>
+                    {times.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <Shield className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Nenhum jogo finalizado ainda neste grupo.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        {renderTabelaGenerica(times)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             ) : tabela.length === 0 ? (
-              <div className="py-20 text-center">
+              <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm py-20 text-center">
                 <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground">Nenhum jogo finalizado ainda.</p>
                 <p className="text-sm text-muted-foreground mt-1">A tabela será gerada conforme os jogos forem encerrados.</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Time</th>
-                    <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PJ</th>
-                    <th className="px-3 py-3 font-semibold text-muted-foreground text-center">V</th>
-                    <th className="px-3 py-3 font-semibold text-muted-foreground text-center">E</th>
-                    <th className="px-3 py-3 font-semibold text-muted-foreground text-center">D</th>
-                    <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GP</th>
-                    <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GC</th>
-                    <th className="px-3 py-3 font-semibold text-muted-foreground text-center">SG</th>
-                    <th className="px-4 py-3 font-semibold text-muted-foreground text-center">PTS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tabela.map((time, idx) => (
-                    <tr
-                      key={time.nome}
-                      className={`border-b last:border-0 transition-colors hover:bg-muted/30 ${idx === 0 ? "bg-primary/5" : ""}`}
-                    >
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                          idx === 0 ? "bg-primary text-white" :
-                          idx === 1 ? "bg-blue-100 text-blue-700" :
-                          idx === 2 ? "bg-orange-100 text-orange-700" :
-                          "bg-muted text-muted-foreground"
-                        }`}>
-                          {idx + 1}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                            {time.nome[0]}
-                          </div>
-                          <span className="font-medium">{time.nome}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-center text-muted-foreground">{time.pj}</td>
-                      <td className="px-3 py-3 text-center">
-                        <span className="flex items-center justify-center gap-0.5 text-green-600 font-medium">
-                          <CheckCircle2 className="w-3 h-3" />{time.v}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <span className="flex items-center justify-center gap-0.5 text-yellow-600 font-medium">
-                          <Minus className="w-3 h-3" />{time.e}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <span className="flex items-center justify-center gap-0.5 text-red-500 font-medium">
-                          <XCircle className="w-3 h-3" />{time.d}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-center text-muted-foreground">{time.gp}</td>
-                      <td className="px-3 py-3 text-center text-muted-foreground">{time.gc}</td>
-                      <td className="px-3 py-3 text-center">
-                        <span className={`font-medium ${time.sg > 0 ? "text-green-600" : time.sg < 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                          {time.sg > 0 ? `+${time.sg}` : time.sg}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="font-bold text-lg text-primary">{time.pts}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+                {renderTabelaGenerica(tabela)}
+              </div>
             )}
-          </div>
+          </>
         )}
 
         {/* JOGOS DO CAMPEONATO */}
