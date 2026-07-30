@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -39,6 +39,84 @@ const extrairMensagemErro = async (res: Response, fallback: string) => {
   } catch {
     return fallback;
   }
+};
+
+interface OpcaoBusca { id: string; label: string }
+
+const SeletorBusca = ({
+  opcoes,
+  valor,
+  onSelecionar,
+  placeholder = "Selecione...",
+}: {
+  opcoes: OpcaoBusca[];
+  valor: string;
+  onSelecionar: (id: string) => void;
+  placeholder?: string;
+}) => {
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const opcaoSelecionada = opcoes.find((o) => o.id === valor);
+
+  useEffect(() => {
+    const handleClickFora = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setAberto(false);
+        setBusca("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickFora);
+    return () => document.removeEventListener("mousedown", handleClickFora);
+  }, []);
+
+  const filtradas = busca.trim()
+    ? opcoes.filter((o) => o.label.toLowerCase().includes(busca.toLowerCase()))
+    : opcoes;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        className="w-full px-4 py-3 rounded-xl border bg-background text-sm text-left focus:outline-none focus:ring-2 focus:ring-primary/30 flex items-center justify-between"
+      >
+        <span className={opcaoSelecionada ? "" : "text-muted-foreground"}>
+          {opcaoSelecionada ? opcaoSelecionada.label : placeholder}
+        </span>
+        <span className="text-muted-foreground text-xs">▾</span>
+      </button>
+      {aberto && (
+        <div className="absolute z-20 mt-1 w-full rounded-xl border bg-background shadow-lg overflow-hidden">
+          <input
+            autoFocus
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Digite pra buscar..."
+            className="w-full px-4 py-2.5 text-sm border-b focus:outline-none"
+          />
+          <div className="max-h-56 overflow-y-auto">
+            {filtradas.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-muted-foreground">Nenhum resultado.</p>
+            ) : (
+              filtradas.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => { onSelecionar(o.id); setAberto(false); setBusca(""); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted/60 transition-colors ${o.id === valor ? "bg-primary/10 font-medium" : ""}`}
+                >
+                  {o.label}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const Admin = () => {
@@ -599,14 +677,20 @@ const Admin = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="text-sm font-medium mb-1.5 block">Mandante *</label>
-                  <select value={novoJogo.time_mandante_id} onChange={(e) => setNovoJogo((p) => ({ ...p, time_mandante_id: e.target.value }))} className={inputClass}>
-                    <option value="">Selecione...</option>{times.map((t) => <option key={t.id} value={t.id}>{t.nome_oficial}</option>)}
-                  </select>
+                  <SeletorBusca
+                    opcoes={times.map((t) => ({ id: String(t.id), label: t.nome_oficial }))}
+                    valor={novoJogo.time_mandante_id}
+                    onSelecionar={(idSel) => setNovoJogo((p) => ({ ...p, time_mandante_id: idSel }))}
+                    placeholder="Buscar time mandante..."
+                  />
                 </div>
                 <div><label className="text-sm font-medium mb-1.5 block">Visitante *</label>
-                  <select value={novoJogo.time_visitante_id} onChange={(e) => setNovoJogo((p) => ({ ...p, time_visitante_id: e.target.value }))} className={inputClass}>
-                    <option value="">Selecione...</option>{times.map((t) => <option key={t.id} value={t.id}>{t.nome_oficial}</option>)}
-                  </select>
+                  <SeletorBusca
+                    opcoes={times.map((t) => ({ id: String(t.id), label: t.nome_oficial }))}
+                    valor={novoJogo.time_visitante_id}
+                    onSelecionar={(idSel) => setNovoJogo((p) => ({ ...p, time_visitante_id: idSel }))}
+                    placeholder="Buscar time visitante..."
+                  />
                 </div>
               </div>
               <div><label className="text-sm font-medium mb-1.5 block">Data e Hora *</label><input type="datetime-local" value={novoJogo.data_hora} onChange={(e) => setNovoJogo((p) => ({ ...p, data_hora: e.target.value }))} className={inputClass} /></div>
@@ -805,36 +889,4 @@ const Admin = () => {
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> Nova Matéria</h2>
             <div className="space-y-4">
               <div><label className="text-sm font-medium mb-1.5 block">Título</label><input type="text" value={novoTitulo} onChange={(e) => setNovoTitulo(e.target.value)} placeholder="Ex: Copa Elite Diadema 2026 começa com tudo!" className={inputClass} /></div>
-              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={novoConteudo} onChange={(e) => setNovoConteudo(e.target.value)} placeholder="Escreva o conteúdo da matéria aqui..." rows={12} className={`${inputClass} resize-none`} /></div>
-              {msgPublicacao && <p className={`text-sm font-medium ${msgPublicacao.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgPublicacao}</p>}
-              <div className="flex gap-3 pt-2">
-                <button onClick={publicarMateria} disabled={publicando} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{publicando ? "Publicando..." : "Publicar Matéria"}</button>
-                <button onClick={() => { setNovoTitulo(""); setNovoConteudo(""); setMsgPublicacao(""); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ABA: EDITAR MATÉRIA */}
-        {aba === "editar_materia" && materiaEditando && (
-          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
-            <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> Editar Matéria</h2>
-            <div className="space-y-4">
-              <div><label className="text-sm font-medium mb-1.5 block">Título</label><input type="text" value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} className={inputClass} /></div>
-              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} /></div>
-              {msgEditMateria && <p className={`text-sm font-medium ${msgEditMateria.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgEditMateria}</p>}
-              <div className="flex gap-3 pt-2">
-                <button onClick={salvarEdicaoMateria} disabled={salvandoMateria} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{salvandoMateria ? "Salvando..." : "Salvar Alterações"}</button>
-                <button onClick={() => { setAba("materias"); setMateriaEditando(null); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Cancelar</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </main>
-      <Footer />
-    </div>
-  );
-};
-
-export default Admin;
+              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={novoConteudo} onChange={(e) =>
