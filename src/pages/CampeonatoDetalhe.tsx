@@ -116,6 +116,7 @@ const CampeonatoDetalhe = () => {
   const jogosFinaliz = jogos.filter(j => j.status === "Finalizado");
   const jogosProximos = jogos.filter(j => j.status === "Agendado");
 
+  // Tabela completa, usada na visão "Geral" (todas as colunas)
   const renderTabelaGenerica = (lista: (TimeTabela | TimeGrupo)[]) => (
     <table className="w-full text-sm">
       <thead>
@@ -181,6 +182,63 @@ const CampeonatoDetalhe = () => {
             </td>
             <td className="px-4 py-3 text-center">
               <span className="font-bold text-lg text-primary">{time.pts}</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  // Tabela compacta, usada nos cards de grupo lado a lado (sem GP/GC, pra sempre caber PTS)
+  const renderTabelaCompacta = (lista: (TimeTabela | TimeGrupo)[]) => (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b bg-muted/40">
+          <th className="text-left px-3 py-3 font-semibold text-muted-foreground w-8">#</th>
+          <th className="text-left px-3 py-3 font-semibold text-muted-foreground">Time</th>
+          <th className="px-2 py-3 font-semibold text-muted-foreground text-center">PJ</th>
+          <th className="px-2 py-3 font-semibold text-muted-foreground text-center">V</th>
+          <th className="px-2 py-3 font-semibold text-muted-foreground text-center">E</th>
+          <th className="px-2 py-3 font-semibold text-muted-foreground text-center">D</th>
+          <th className="px-2 py-3 font-semibold text-muted-foreground text-center">SG</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PTS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {lista.map((time, idx) => (
+          <tr
+            key={time.nome}
+            className={`border-b last:border-0 transition-colors hover:bg-muted/30 ${idx === 0 ? "bg-primary/5" : ""}`}
+          >
+            <td className="px-3 py-2.5">
+              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                idx === 0 ? "bg-primary text-white" :
+                idx === 1 ? "bg-blue-100 text-blue-700" :
+                idx === 2 ? "bg-orange-100 text-orange-700" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {idx + 1}
+              </span>
+            </td>
+            <td className="px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px] shrink-0">
+                  {time.nome[0]}
+                </div>
+                <span className="font-medium truncate">{time.nome}</span>
+              </div>
+            </td>
+            <td className="px-2 py-2.5 text-center text-muted-foreground">{time.pj}</td>
+            <td className="px-2 py-2.5 text-center text-green-600 font-medium">{time.v}</td>
+            <td className="px-2 py-2.5 text-center text-yellow-600 font-medium">{time.e}</td>
+            <td className="px-2 py-2.5 text-center text-red-500 font-medium">{time.d}</td>
+            <td className="px-2 py-2.5 text-center">
+              <span className={`font-medium ${time.sg > 0 ? "text-green-600" : time.sg < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                {time.sg > 0 ? `+${time.sg}` : time.sg}
+              </span>
+            </td>
+            <td className="px-3 py-2.5 text-center">
+              <span className="font-bold text-primary">{time.pts}</span>
             </td>
           </tr>
         ))}
@@ -268,7 +326,7 @@ const CampeonatoDetalhe = () => {
                 {[1,2,3,4].map(i => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}
               </div>
             ) : temGrupos && visaoTabela === "grupos" ? (
-              // MODO GRUPOS: uma tabela por chave, lado a lado em telas maiores
+              // MODO GRUPOS: tabela compacta por chave, lado a lado em telas maiores
               <div className="grid gap-6 md:grid-cols-2">
                 {Object.entries(grupos).map(([nomeGrupo, times]) => (
                   <div key={nomeGrupo} className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
@@ -281,9 +339,7 @@ const CampeonatoDetalhe = () => {
                         <p className="text-sm text-muted-foreground">Nenhum jogo finalizado ainda neste grupo.</p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        {renderTabelaGenerica(times)}
-                      </div>
+                      renderTabelaCompacta(times)
                     )}
                   </div>
                 ))}
