@@ -129,6 +129,7 @@ const CampeonatoDetalhe = () => {
         <tr className="border-b bg-muted/40">
           <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
           <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Time</th>
+          <th className="px-4 py-3 font-semibold text-muted-foreground text-center">PTS</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PJ</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">V</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">E</th>
@@ -136,7 +137,6 @@ const CampeonatoDetalhe = () => {
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GP</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GC</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">SG</th>
-          <th className="px-4 py-3 font-semibold text-muted-foreground text-center">PTS</th>
         </tr>
       </thead>
       <tbody>
@@ -163,6 +163,9 @@ const CampeonatoDetalhe = () => {
                 <span className="font-medium">{time.nome}</span>
               </div>
             </td>
+            <td className="px-4 py-3 text-center">
+              <span className="font-bold text-lg text-primary">{time.pts}</span>
+            </td>
             <td className="px-3 py-3 text-center text-muted-foreground">{time.pj}</td>
             <td className="px-3 py-3 text-center">
               <span className="flex items-center justify-center gap-0.5 text-green-600 font-medium">
@@ -186,9 +189,6 @@ const CampeonatoDetalhe = () => {
                 {time.sg > 0 ? `+${time.sg}` : time.sg}
               </span>
             </td>
-            <td className="px-4 py-3 text-center">
-              <span className="font-bold text-lg text-primary">{time.pts}</span>
-            </td>
           </tr>
         ))}
       </tbody>
@@ -202,12 +202,12 @@ const CampeonatoDetalhe = () => {
         <tr className="border-b bg-muted/40">
           <th className="text-left px-3 py-3 font-semibold text-muted-foreground w-8">#</th>
           <th className="text-left px-3 py-3 font-semibold text-muted-foreground">Time</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PTS</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">PJ</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">V</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">E</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">D</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">SG</th>
-          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PTS</th>
         </tr>
       </thead>
       <tbody>
@@ -234,6 +234,9 @@ const CampeonatoDetalhe = () => {
                 <span className="font-medium truncate">{time.nome}</span>
               </div>
             </td>
+            <td className="px-3 py-2.5 text-center">
+              <span className="font-bold text-primary">{time.pts}</span>
+            </td>
             <td className="px-2 py-2.5 text-center text-muted-foreground">{time.pj}</td>
             <td className="px-2 py-2.5 text-center text-green-600 font-medium">{time.v}</td>
             <td className="px-2 py-2.5 text-center text-yellow-600 font-medium">{time.e}</td>
@@ -242,9 +245,6 @@ const CampeonatoDetalhe = () => {
               <span className={`font-medium ${time.sg > 0 ? "text-green-600" : time.sg < 0 ? "text-red-500" : "text-muted-foreground"}`}>
                 {time.sg > 0 ? `+${time.sg}` : time.sg}
               </span>
-            </td>
-            <td className="px-3 py-2.5 text-center">
-              <span className="font-bold text-primary">{time.pts}</span>
             </td>
           </tr>
         ))}
