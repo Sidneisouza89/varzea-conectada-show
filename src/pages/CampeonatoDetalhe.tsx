@@ -5,7 +5,8 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   Trophy, ArrowLeft, Shield, Swords, TrendingUp,
-  CheckCircle2, Minus, XCircle, Calendar, LayoutGrid, ListOrdered
+  CheckCircle2, Minus, XCircle, Calendar, LayoutGrid, ListOrdered,
+  Settings2 // NOVO
 } from "lucide-react";
 
 interface TimeTabela {
@@ -56,6 +57,11 @@ const CampeonatoDetalhe = () => {
   const [jogos, setJogos] = useState<Jogo[]>([]);
   const [aba, setAba] = useState<"tabela" | "jogos">("tabela");
   const [loading, setLoading] = useState(true);
+
+  // NOVO: identifica se o usuário logado é admin (mesmo critério usado no Header)
+  const storedUser = localStorage.getItem("varzeando_user");
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const isAdmin = user?.role === "master" || user?.role === "presidente";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -270,7 +276,7 @@ const CampeonatoDetalhe = () => {
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-primary" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold">{campeonato?.nome ?? `Campeonato #${id}`}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${campeonato?.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
@@ -281,6 +287,16 @@ const CampeonatoDetalhe = () => {
                 </span>
               </div>
             </div>
+
+            {/* NOVO: botão de gerenciar grupos, só pra master/presidente e só em campeonatos de Grupos + Mata-Mata */}
+            {isAdmin && campeonato?.tipo_formato === "GRUPOS_E_MATA_MATA" && (
+              <button
+                onClick={() => navigate(`/admin/campeonatos/${id}/grupos`)}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors shrink-0"
+              >
+                <Settings2 className="w-4 h-4" /> Gerenciar Grupos
+              </button>
+            )}
           </div>
         )}
 
