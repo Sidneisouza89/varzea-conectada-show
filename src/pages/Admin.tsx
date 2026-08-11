@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
-  Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin, Layers, Shirt
+  Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
@@ -14,6 +14,7 @@ interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonat
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
+interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
 
 const ROLES = ["torcedor", "capitao", "delegado", "olheiro", "presidente", "master"];
 
@@ -25,7 +26,7 @@ const FORMATOS = [
   { value: "PONTOS_CORRIDOS_PLAYOFFS", label: "Pontos Corridos + Playoffs (top 8 vai à chave)" },
 ];
 
-type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio";
+type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
 
 // Mensagem padrão quando a sessão expira de vez (falha até na tentativa de refresh)
 const SESSION_EXPIRED_MSG = "Sua sessão expirou. Saia e entre novamente no Admin para continuar.";
@@ -130,11 +131,13 @@ const Admin = () => {
   const [times, setTimes] = useState<Time[]>([]);
   const [campeonatos, setCampeonatos] = useState<Campeonato[]>([]);
   const [estadios, setEstadios] = useState<Estadio[]>([]);
+  const [contatos, setContatos] = useState<Contato[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingMaterias, setLoadingMaterias] = useState(true);
   const [loadingJogos, setLoadingJogos] = useState(true);
   const [loadingTimes, setLoadingTimes] = useState(true);
   const [loadingEstadios, setLoadingEstadios] = useState(true);
+  const [loadingContatos, setLoadingContatos] = useState(true);
   const [aba, setAba] = useState<Aba>(user?.role === "master" ? "usuarios" : "campeonatos");
   const [salvando, setSalvando] = useState<number | null>(null);
 
@@ -187,6 +190,16 @@ const Admin = () => {
   const [estadioEdit, setEstadioEdit] = useState({ nome_oficial: "", apelido: "", bairro: "", cidade: "", estado: "" });
   const [salvandoEstadio, setSalvandoEstadio] = useState(false);
 
+  // Novo contato
+  const [novoContato, setNovoContato] = useState({ nome: "", telefone: "", papel: "", observacoes: "", campeonato_id: "" });
+  const [criandoContato, setCriandoContato] = useState(false);
+  const [msgContato, setMsgContato] = useState("");
+
+  // Editar contato
+  const [contatoEditando, setContatoEditando] = useState<Contato | null>(null);
+  const [contatoEdit, setContatoEdit] = useState({ nome: "", telefone: "", papel: "", observacoes: "", campeonato_id: "" });
+  const [salvandoContato, setSalvandoContato] = useState(false);
+
   // Placar rápido (finalizar)
   const [placar, setPlacar] = useState<Record<number, { m: string; v: string }>>({});
   const [finalizando, setFinalizando] = useState<number | null>(null);
@@ -212,8 +225,9 @@ const Admin = () => {
   const fetchTimes = async () => { setLoadingTimes(true); try { const res = await fetch(`${API_BASE_URL}/api/times`); if (res.ok) setTimes(await res.json()); } finally { setLoadingTimes(false); } };
   const fetchCampeonatos = async () => { const res = await fetch(`${API_BASE_URL}/api/campeonatos`); if (res.ok) setCampeonatos(await res.json()); };
   const fetchEstadios = async () => { setLoadingEstadios(true); try { const res = await fetch(`${API_BASE_URL}/api/estadios`); if (res.ok) setEstadios(await res.json()); } finally { setLoadingEstadios(false); } };
+  const fetchContatos = async () => { setLoadingContatos(true); try { const res = await authFetch(`${API_BASE_URL}/api/contatos`); if (res.ok) setContatos(await res.json()); } finally { setLoadingContatos(false); } };
 
-  useEffect(() => { fetchUsuarios(); fetchMaterias(); fetchJogos(); fetchTimes(); fetchCampeonatos(); fetchEstadios(); }, []);
+  useEffect(() => { fetchUsuarios(); fetchMaterias(); fetchJogos(); fetchTimes(); fetchCampeonatos(); fetchEstadios(); fetchContatos(); }, []);
 
   const mudarRole = async (userId: number, novoRole: string) => {
     setSalvando(userId);
@@ -392,6 +406,67 @@ const Admin = () => {
     } finally { setSalvandoEstadio(false); }
   };
 
+  const criarContato = async () => {
+    if (!novoContato.nome.trim() || !novoContato.campeonato_id) { setMsgContato("Preencha nome e campeonato."); return; }
+    setCriandoContato(true); setMsgContato("");
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/contatos`, {
+        method: "POST",
+        body: JSON.stringify({
+          nome: novoContato.nome,
+          telefone: novoContato.telefone,
+          papel: novoContato.papel,
+          observacoes: novoContato.observacoes,
+          campeonato_id: parseInt(novoContato.campeonato_id),
+        }),
+      });
+      if (res.ok) { setMsgContato("✅ Contato cadastrado!"); setNovoContato({ nome: "", telefone: "", papel: "", observacoes: "", campeonato_id: "" }); fetchContatos(); setTimeout(() => setAba("contatos"), 1500); }
+      else { setMsgContato(await extrairMensagemErro(res, "Erro ao cadastrar contato.")); }
+    } catch (err) {
+      setMsgContato("Erro de conexão ao cadastrar contato.");
+    } finally { setCriandoContato(false); }
+  };
+
+  const abrirEdicaoContato = (c: Contato) => {
+    setContatoEditando(c);
+    setContatoEdit({ nome: c.nome, telefone: c.telefone ?? "", papel: c.papel ?? "", observacoes: c.observacoes ?? "", campeonato_id: String(c.campeonato_id) });
+  };
+
+  const salvarEdicaoContato = async () => {
+    if (!contatoEditando) return;
+    setSalvandoContato(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/contatos/${contatoEditando.contato_id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          nome: contatoEdit.nome,
+          telefone: contatoEdit.telefone,
+          papel: contatoEdit.papel,
+          observacoes: contatoEdit.observacoes,
+          campeonato_id: parseInt(contatoEdit.campeonato_id),
+        }),
+      });
+      if (res.ok) { setContatoEditando(null); fetchContatos(); }
+      else { alert(await extrairMensagemErro(res, "Erro ao salvar contato.")); }
+    } catch (err) {
+      alert("Erro de conexão ao salvar contato.");
+    } finally { setSalvandoContato(false); }
+  };
+
+  const deletarContato = async (id: number) => {
+    if (!confirm("Remover este contato?")) return;
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/contatos/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setContatos((prev) => prev.filter((c) => c.contato_id !== id));
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao remover contato."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao remover contato.");
+    }
+  };
+
   const finalizarJogo = async (jogoId: number) => {
     const p = placar[jogoId];
     if (!p || p.m === "" || p.v === "") { alert("Preencha o placar antes de finalizar."); return; }
@@ -452,6 +527,8 @@ const Admin = () => {
     { key: "novo_time", label: "Novo Time", icon: PlusCircle },
     { key: "estadios", label: "Estádios", icon: MapPin },
     { key: "novo_estadio", label: "Novo Estádio", icon: PlusCircle },
+    { key: "contatos", label: "Contatos", icon: Phone },
+    { key: "novo_contato", label: "Novo Contato", icon: PlusCircle },
     { key: "materias", label: "Matérias", icon: Newspaper },
     { key: "nova_materia", label: "Nova Matéria", icon: PlusCircle },
   ];
@@ -477,6 +554,7 @@ const Admin = () => {
             { icon: Swords, count: jogos.length, label: "Jogos" },
             { icon: Shirt, count: times.length, label: "Times" },
             { icon: MapPin, count: estadios.length, label: "Estádios" },
+            { icon: Phone, count: contatos.length, label: "Contatos" },
             { icon: Newspaper, count: materias.length, label: "Matérias" },
           ].map(({ icon: Icon, count, label }) => (
             <div key={label} className="flex items-center gap-2 bg-card/80 border rounded-xl px-5 py-3 shadow-sm">
@@ -851,6 +929,87 @@ const Admin = () => {
               <div className="flex gap-3 pt-2">
                 <button onClick={criarEstadio} disabled={criandoEstadio} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoEstadio ? "Salvando..." : "Cadastrar Estádio"}</button>
                 <button onClick={() => setNovoEstadio({ nome_oficial: "", apelido: "", rua: "", numero: "", bairro: "", cidade: "Diadema", estado: "SP", cep: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ABA: CONTATOS */}
+        {aba === "contatos" && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="font-bold text-lg">Contatos-Chave</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setAba("novo_contato")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>
+                <button onClick={fetchContatos} className="text-muted-foreground hover:text-foreground ml-2"><RefreshCw className="w-4 h-4" /></button>
+              </div>
+            </div>
+            {loadingContatos ? <div className="p-8 text-center text-muted-foreground">Carregando...</div> :
+              contatos.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum contato cadastrado.</div> : (
+              <div className="divide-y">
+                {contatos.map((c) => (
+                  <div key={c.contato_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
+                    {contatoEditando?.contato_id === c.contato_id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={contatoEdit.nome} onChange={(ev) => setContatoEdit(p => ({ ...p, nome: ev.target.value }))} placeholder="Nome" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          <input value={contatoEdit.telefone} onChange={(ev) => setContatoEdit(p => ({ ...p, telefone: ev.target.value }))} placeholder="Telefone" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        </div>
+                        <input value={contatoEdit.papel} onChange={(ev) => setContatoEdit(p => ({ ...p, papel: ev.target.value }))} placeholder="Papel (ex: Coordenador Liga Diadema)" className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        <textarea value={contatoEdit.observacoes} onChange={(ev) => setContatoEdit(p => ({ ...p, observacoes: ev.target.value }))} placeholder="Observações" rows={2} className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+                        <select value={contatoEdit.campeonato_id} onChange={(ev) => setContatoEdit(p => ({ ...p, campeonato_id: ev.target.value }))} className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
+                          <option value="">Selecione o campeonato</option>
+                          {campeonatos.map((camp) => <option key={camp.campeonato_id} value={camp.campeonato_id}>{camp.nome}</option>)}
+                        </select>
+                        <div className="flex gap-2">
+                          <button onClick={salvarEdicaoContato} disabled={salvandoContato} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+                            {salvandoContato ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                          </button>
+                          <button onClick={() => setContatoEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{c.nome[0]}</div>
+                          <div>
+                            <p className="font-medium text-sm">{c.nome}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{c.papel} · {c.telefone}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{c.campeonato_nome}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => abrirEdicaoContato(c)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar contato"><Edit3 className="w-4 h-4" /></button>
+                          <button onClick={() => deletarContato(c.contato_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA: NOVO CONTATO */}
+        {aba === "novo_contato" && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
+            <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Phone className="w-5 h-5 text-primary" /> Cadastrar Contato-Chave</h2>
+            <div className="space-y-4">
+              <div><label className="text-sm font-medium mb-1.5 block">Nome *</label><input type="text" value={novoContato.nome} onChange={(e) => setNovoContato(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Sandro Almeida" className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">Telefone</label><input type="text" value={novoContato.telefone} onChange={(e) => setNovoContato(p => ({ ...p, telefone: e.target.value }))} placeholder="Ex: 11999999999" className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">Papel</label><input type="text" value={novoContato.papel} onChange={(e) => setNovoContato(p => ({ ...p, papel: e.target.value }))} placeholder="Ex: Coordenador Liga Diadema" className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">Campeonato *</label>
+                <select value={novoContato.campeonato_id} onChange={(e) => setNovoContato(p => ({ ...p, campeonato_id: e.target.value }))} className={inputClass}>
+                  <option value="">Selecione o campeonato</option>
+                  {campeonatos.map((c) => <option key={c.campeonato_id} value={c.campeonato_id}>{c.nome}</option>)}
+                </select>
+              </div>
+              <div><label className="text-sm font-medium mb-1.5 block">Observações</label><textarea value={novoContato.observacoes} onChange={(e) => setNovoContato(p => ({ ...p, observacoes: e.target.value }))} placeholder="Notas sobre o contato..." rows={4} className={`${inputClass} resize-none`} /></div>
+              {msgContato && <p className={`text-sm font-medium ${msgContato.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgContato}</p>}
+              <div className="flex gap-3 pt-2">
+                <button onClick={criarContato} disabled={criandoContato} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoContato ? "Salvando..." : "Cadastrar Contato"}</button>
+                <button onClick={() => setNovoContato({ nome: "", telefone: "", papel: "", observacoes: "", campeonato_id: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
