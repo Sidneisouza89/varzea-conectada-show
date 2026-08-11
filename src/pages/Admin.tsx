@@ -564,8 +564,8 @@ const Admin = () => {
         </div>
 
         {/* Abas */}
-        <div className="flex justify-center mb-8 overflow-x-auto pb-2">
-          <div className="inline-flex rounded-xl border bg-card/80 p-1 gap-1">
+        <div className="flex justify-center mb-8">
+          <div className="flex flex-wrap justify-center rounded-xl border bg-card/80 p-1 gap-1 max-w-4xl">
             {abas.filter(a => a.key !== "editar_materia").map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => setAba(key)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${aba === key ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
