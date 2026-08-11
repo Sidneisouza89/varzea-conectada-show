@@ -5,7 +5,8 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   Trophy, ArrowLeft, Shield, Swords, TrendingUp,
-  CheckCircle2, Minus, XCircle, Calendar, LayoutGrid, ListOrdered
+  CheckCircle2, Minus, XCircle, Calendar, LayoutGrid, ListOrdered,
+  Settings2 // NOVO
 } from "lucide-react";
 
 interface TimeTabela {
@@ -56,6 +57,11 @@ const CampeonatoDetalhe = () => {
   const [jogos, setJogos] = useState<Jogo[]>([]);
   const [aba, setAba] = useState<"tabela" | "jogos">("tabela");
   const [loading, setLoading] = useState(true);
+
+  // NOVO: identifica se o usuário logado é admin (mesmo critério usado no Header)
+  const storedUser = localStorage.getItem("varzeando_user");
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const isAdmin = user?.role === "master" || user?.role === "presidente";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -123,6 +129,7 @@ const CampeonatoDetalhe = () => {
         <tr className="border-b bg-muted/40">
           <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
           <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Time</th>
+          <th className="px-4 py-3 font-semibold text-muted-foreground text-center">PTS</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PJ</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">V</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">E</th>
@@ -130,7 +137,6 @@ const CampeonatoDetalhe = () => {
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GP</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">GC</th>
           <th className="px-3 py-3 font-semibold text-muted-foreground text-center">SG</th>
-          <th className="px-4 py-3 font-semibold text-muted-foreground text-center">PTS</th>
         </tr>
       </thead>
       <tbody>
@@ -157,6 +163,9 @@ const CampeonatoDetalhe = () => {
                 <span className="font-medium">{time.nome}</span>
               </div>
             </td>
+            <td className="px-4 py-3 text-center">
+              <span className="font-bold text-lg text-primary">{time.pts}</span>
+            </td>
             <td className="px-3 py-3 text-center text-muted-foreground">{time.pj}</td>
             <td className="px-3 py-3 text-center">
               <span className="flex items-center justify-center gap-0.5 text-green-600 font-medium">
@@ -180,9 +189,6 @@ const CampeonatoDetalhe = () => {
                 {time.sg > 0 ? `+${time.sg}` : time.sg}
               </span>
             </td>
-            <td className="px-4 py-3 text-center">
-              <span className="font-bold text-lg text-primary">{time.pts}</span>
-            </td>
           </tr>
         ))}
       </tbody>
@@ -196,12 +202,12 @@ const CampeonatoDetalhe = () => {
         <tr className="border-b bg-muted/40">
           <th className="text-left px-3 py-3 font-semibold text-muted-foreground w-8">#</th>
           <th className="text-left px-3 py-3 font-semibold text-muted-foreground">Time</th>
+          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PTS</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">PJ</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">V</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">E</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">D</th>
           <th className="px-2 py-3 font-semibold text-muted-foreground text-center">SG</th>
-          <th className="px-3 py-3 font-semibold text-muted-foreground text-center">PTS</th>
         </tr>
       </thead>
       <tbody>
@@ -228,6 +234,9 @@ const CampeonatoDetalhe = () => {
                 <span className="font-medium truncate">{time.nome}</span>
               </div>
             </td>
+            <td className="px-3 py-2.5 text-center">
+              <span className="font-bold text-primary">{time.pts}</span>
+            </td>
             <td className="px-2 py-2.5 text-center text-muted-foreground">{time.pj}</td>
             <td className="px-2 py-2.5 text-center text-green-600 font-medium">{time.v}</td>
             <td className="px-2 py-2.5 text-center text-yellow-600 font-medium">{time.e}</td>
@@ -236,9 +245,6 @@ const CampeonatoDetalhe = () => {
               <span className={`font-medium ${time.sg > 0 ? "text-green-600" : time.sg < 0 ? "text-red-500" : "text-muted-foreground"}`}>
                 {time.sg > 0 ? `+${time.sg}` : time.sg}
               </span>
-            </td>
-            <td className="px-3 py-2.5 text-center">
-              <span className="font-bold text-primary">{time.pts}</span>
             </td>
           </tr>
         ))}
@@ -270,7 +276,7 @@ const CampeonatoDetalhe = () => {
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-primary" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold">{campeonato?.nome ?? `Campeonato #${id}`}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${campeonato?.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
@@ -281,6 +287,16 @@ const CampeonatoDetalhe = () => {
                 </span>
               </div>
             </div>
+
+            {/* NOVO: botão de gerenciar grupos, só pra master/presidente e só em campeonatos de Grupos + Mata-Mata */}
+            {isAdmin && campeonato?.tipo_formato === "GRUPOS_E_MATA_MATA" && (
+              <button
+                onClick={() => navigate(`/admin/campeonatos/${id}/grupos`)}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors shrink-0"
+              >
+                <Settings2 className="w-4 h-4" /> Gerenciar Grupos
+              </button>
+            )}
           </div>
         )}
 
