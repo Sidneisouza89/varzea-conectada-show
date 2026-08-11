@@ -34,6 +34,8 @@ interface Jogo {
   status: string;
   gols_mandante: number;
   gols_visitante: number;
+  rodada: number | null; // NOVO
+  confronto_id: number | null; // NOVO
 }
 
 interface Campeonato {
@@ -121,6 +123,35 @@ const CampeonatoDetalhe = () => {
 
   const jogosFinaliz = jogos.filter(j => j.status === "Finalizado");
   const jogosProximos = jogos.filter(j => j.status === "Agendado");
+
+  // NOVO: mapeia rodada -> nome da fase, baseado em quantos confrontos distintos existem nela.
+  // Só entra nesse cálculo jogo que tenha confronto_id preenchido (marca de mata-mata).
+  const nomeFasePorRodada = (() => {
+    const confrontosPorRodada: Record<number, Set<number>> = {};
+    jogos.forEach((j) => {
+      if (j.rodada == null || j.confronto_id == null) return;
+      if (!confrontosPorRodada[j.rodada]) confrontosPorRodada[j.rodada] = new Set();
+      confrontosPorRodada[j.rodada].add(j.confronto_id);
+    });
+
+    const mapa: Record<number, string> = {};
+    Object.entries(confrontosPorRodada).forEach(([rodadaStr, confrontos]) => {
+      const rodada = Number(rodadaStr);
+      const qtd = confrontos.size;
+      if (qtd === 1) mapa[rodada] = "Final";
+      else if (qtd === 2) mapa[rodada] = "Semifinal";
+      else if (qtd === 4) mapa[rodada] = "Quartas de Final";
+      else if (qtd === 8) mapa[rodada] = "Oitavas de Final";
+      else if (qtd === 16) mapa[rodada] = "16 Avos de Final";
+      else mapa[rodada] = "Mata-Mata";
+    });
+    return mapa;
+  })();
+
+  const nomeFaseDoJogo = (j: Jogo): string | null => {
+    if (j.rodada == null || j.confronto_id == null) return null;
+    return nomeFasePorRodada[j.rodada] ?? null;
+  };
 
   // Tabela completa, usada na visão "Geral" (todas as colunas)
   const renderTabelaGenerica = (lista: (TimeTabela | TimeGrupo)[]) => (
@@ -384,22 +415,30 @@ const CampeonatoDetalhe = () => {
                   <Calendar className="w-4 h-4" /> Próximos Jogos
                 </h2>
                 <div className="space-y-2">
-                  {jogosProximos.map(j => (
-                    <div key={j.jogo_id} className="rounded-xl border bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between gap-4">
-                      <div className="flex-1 text-right">
-                        <p className="font-semibold">{j.mandante}</p>
-                        <p className="text-xs text-muted-foreground">Casa</p>
+                  {jogosProximos.map(j => {
+                    const fase = nomeFaseDoJogo(j); // NOVO
+                    return (
+                      <div key={j.jogo_id} className="rounded-xl border bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between gap-4">
+                        <div className="flex-1 text-right">
+                          <p className="font-semibold">{j.mandante}</p>
+                          <p className="text-xs text-muted-foreground">Casa</p>
+                        </div>
+                        <div className="text-center px-4">
+                          {fase && ( // NOVO
+                            <span className="inline-block mb-1 bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                              {fase}
+                            </span>
+                          )}
+                          <p className="text-xs text-muted-foreground mb-1">{j.data_hora}</p>
+                          <span className="bg-accent text-accent-foreground text-xs font-bold px-3 py-1 rounded-full">PRÓXIMO</span>
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="font-semibold">{j.visitante}</p>
+                          <p className="text-xs text-muted-foreground">Visitante</p>
+                        </div>
                       </div>
-                      <div className="text-center px-4">
-                        <p className="text-xs text-muted-foreground mb-1">{j.data_hora}</p>
-                        <span className="bg-accent text-accent-foreground text-xs font-bold px-3 py-1 rounded-full">PRÓXIMO</span>
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="font-semibold">{j.visitante}</p>
-                        <p className="text-xs text-muted-foreground">Visitante</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -411,22 +450,30 @@ const CampeonatoDetalhe = () => {
                   <CheckCircle2 className="w-4 h-4" /> Jogos Finalizados
                 </h2>
                 <div className="space-y-2">
-                  {jogosFinaliz.map(j => (
-                    <div key={j.jogo_id} className="rounded-xl border bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between gap-4">
-                      <div className="flex-1 text-right">
-                        <p className="font-semibold">{j.mandante}</p>
-                        <p className="text-xs text-muted-foreground">Casa</p>
+                  {jogosFinaliz.map(j => {
+                    const fase = nomeFaseDoJogo(j); // NOVO
+                    return (
+                      <div key={j.jogo_id} className="rounded-xl border bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between gap-4">
+                        <div className="flex-1 text-right">
+                          <p className="font-semibold">{j.mandante}</p>
+                          <p className="text-xs text-muted-foreground">Casa</p>
+                        </div>
+                        <div className="text-center px-4 min-w-[80px]">
+                          {fase && ( // NOVO
+                            <span className="inline-block mb-1 bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                              {fase}
+                            </span>
+                          )}
+                          <p className="text-2xl font-bold tabular-nums">{j.gols_mandante} <span className="text-muted-foreground">x</span> {j.gols_visitante}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{j.data_hora}</p>
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="font-semibold">{j.visitante}</p>
+                          <p className="text-xs text-muted-foreground">Visitante</p>
+                        </div>
                       </div>
-                      <div className="text-center px-4 min-w-[80px]">
-                        <p className="text-2xl font-bold tabular-nums">{j.gols_mandante} <span className="text-muted-foreground">x</span> {j.gols_visitante}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{j.data_hora}</p>
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="font-semibold">{j.visitante}</p>
-                        <p className="text-xs text-muted-foreground">Visitante</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
