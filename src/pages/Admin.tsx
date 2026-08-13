@@ -50,6 +50,9 @@ const paraDatetimeLocal = (dataHoraBr: string) => {
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 };
 
+// Converte "YYYY-MM-DDTHH:mm" (valor do input datetime-local) para "YYYY-MM-DD HH:MM:SS" (formato exigido pelo backend na rota /reagendar)
+const paraFormatoBackend = (isoLocal: string) => `${isoLocal.replace("T", " ")}:00`;
+
 interface OpcaoBusca { id: string; label: string }
 
 const SeletorBusca = ({
@@ -523,7 +526,7 @@ const Admin = () => {
       const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/reagendar`, {
         method: "POST",
         body: JSON.stringify({
-          data_hora: reagendarForm.data_hora,
+          data_hora: paraFormatoBackend(reagendarForm.data_hora),
           ...(reagendarForm.estadio_id ? { estadio_id: parseInt(reagendarForm.estadio_id) } : {}),
         }),
       });
