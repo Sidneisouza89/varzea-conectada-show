@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
-  Trash2, Edit3, Save, X, Swords, Calendar, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone
+  Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
@@ -40,6 +40,14 @@ const extrairMensagemErro = async (res: Response, fallback: string) => {
   } catch {
     return fallback;
   }
+};
+
+// Converte "DD/MM/YYYY HH:mm" (como vem do backend) para "YYYY-MM-DDTHH:mm" (formato do input datetime-local)
+const paraDatetimeLocal = (dataHoraBr: string) => {
+  const m = dataHoraBr?.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if (!m) return "";
+  const [, dd, mm, yyyy, hh, min] = m;
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 };
 
 interface OpcaoBusca { id: string; label: string }
@@ -208,6 +216,11 @@ const Admin = () => {
   const [editando, setEditando] = useState<number | null>(null);
   const [placarEdit, setPlacarEdit] = useState<{ m: string; v: string }>({ m: "", v: "" });
   const [salvandoEdit, setSalvandoEdit] = useState(false);
+
+  // Reagendar jogo (RF-08)
+  const [reagendando, setReagendando] = useState<number | null>(null);
+  const [reagendarForm, setReagendarForm] = useState<{ data_hora: string; estadio_id: string }>({ data_hora: "", estadio_id: "" });
+  const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
 
   useEffect(() => {
     if (!user || (user.role !== "master" && user.role !== "presidente")) navigate("/");
@@ -498,6 +511,29 @@ const Admin = () => {
     } finally { setSalvandoEdit(false); }
   };
 
+  const abrirReagendamento = (j: Jogo) => {
+    setReagendando(j.jogo_id);
+    setReagendarForm({ data_hora: paraDatetimeLocal(j.data_hora), estadio_id: "" });
+  };
+
+  const salvarReagendamento = async (jogoId: number) => {
+    if (!reagendarForm.data_hora) { alert("Selecione a nova data e hora."); return; }
+    setSalvandoReagendamento(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/reagendar`, {
+        method: "POST",
+        body: JSON.stringify({
+          data_hora: reagendarForm.data_hora,
+          ...(reagendarForm.estadio_id ? { estadio_id: parseInt(reagendarForm.estadio_id) } : {}),
+        }),
+      });
+      if (res.ok) { setReagendando(null); fetchJogos(); }
+      else { alert(await extrairMensagemErro(res, "Erro ao reagendar jogo.")); }
+    } catch (err) {
+      alert("Erro de conexão ao reagendar jogo.");
+    } finally { setSalvandoReagendamento(false); }
+  };
+
   const deletarJogo = async (id: number) => {
     if (!confirm("Remover este jogo?")) return;
     try {
@@ -712,6 +748,9 @@ const Admin = () => {
                         <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
                           {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                         </button>
+                        <button onClick={() => reagendando === j.jogo_id ? setReagendando(null) : abrirReagendamento(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Reagendar jogo">
+                          {reagendando === j.jogo_id ? <X className="w-4 h-4" /> : <CalendarClock className="w-4 h-4" />}
+                        </button>
                         <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
@@ -739,6 +778,20 @@ const Admin = () => {
                           {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
                         </button>
                         <button onClick={() => setEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
+                      </div>
+                    )}
+                    {reagendando === j.jogo_id && (
+                      <div className="flex flex-wrap items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                        <CalendarClock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <input type="datetime-local" value={reagendarForm.data_hora} onChange={(e) => setReagendarForm(p => ({ ...p, data_hora: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        <select value={reagendarForm.estadio_id} onChange={(e) => setReagendarForm(p => ({ ...p, estadio_id: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
+                          <option value="">Manter estádio atual</option>
+                          {estadios.map((e) => <option key={e.id} value={e.id}>{e.apelido || e.nome_oficial}</option>)}
+                        </select>
+                        <button onClick={() => salvarReagendamento(j.jogo_id)} disabled={salvandoReagendamento} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                          {salvandoReagendamento ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Reagendar
+                        </button>
+                        <button onClick={() => setReagendando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
                       </div>
                     )}
                   </div>
