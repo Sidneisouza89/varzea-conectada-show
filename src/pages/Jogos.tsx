@@ -16,6 +16,22 @@ interface Jogo {
   gols_visitante?: number;
 }
 
+// Converte "DD/MM/YYYY HH:mm" (formato que a API devolve) em Date, pra permitir ordenação cronológica real
+const paraData = (dataHoraBr: string): Date => {
+  const m = dataHoraBr?.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if (!m) return new Date(0);
+  const [, dd, mm, yyyy, hh, min] = m;
+  return new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
+};
+
+// Ordena por data/hora do jogo e, em caso de empate, por nome do campeonato
+const ordenarJogos = (lista: Jogo[]): Jogo[] =>
+  [...lista].sort((a, b) => {
+    const diffData = paraData(a.data_hora).getTime() - paraData(b.data_hora).getTime();
+    if (diffData !== 0) return diffData;
+    return a.campeonato.localeCompare(b.campeonato);
+  });
+
 const Jogos = () => {
   const [jogos, setJogos] = useState<Jogo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,9 +59,10 @@ const Jogos = () => {
     fetchJogos();
   }, []);
 
-  const jogosAoVivo = jogos.filter((j) => j.status === "Em andamento");
-  const jogosProximos = jogos.filter((j) => j.status === "Agendado");
-  const jogosFinaliz = jogos.filter((j) => j.status === "Finalizado");
+  const jogosOrdenados = ordenarJogos(jogos);
+  const jogosAoVivo = jogosOrdenados.filter((j) => j.status === "Em andamento");
+  const jogosProximos = jogosOrdenados.filter((j) => j.status === "Agendado");
+  const jogosFinaliz = jogosOrdenados.filter((j) => j.status === "Finalizado");
 
   return (
     <div className="min-h-screen bg-background" style={{backgroundImage: "linear-gradient(135deg, rgba(232,116,0,0.12) 0%, transparent 50%, rgba(0,51,128,0.12) 100%)", backgroundAttachment: "fixed"}}>
