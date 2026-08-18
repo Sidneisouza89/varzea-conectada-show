@@ -12,7 +12,7 @@ interface Usuario { id: number; username: string; role: string; is_active: boole
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; }
 interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; }
-interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; ativo: boolean; }
+interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
 interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
 
@@ -25,6 +25,8 @@ const FORMATOS = [
   { value: "IDA_E_VOLTA", label: "Ida e Volta (tipo Paulistão)" },
   { value: "PONTOS_CORRIDOS_PLAYOFFS", label: "Pontos Corridos + Playoffs (top 8 vai à chave)" },
 ];
+
+const GENEROS = ["Masculino", "Feminino", "Misto"];
 
 type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
 
@@ -171,7 +173,7 @@ const Admin = () => {
   const [msgJogo, setMsgJogo] = useState("");
 
   // Novo campeonato
-  const [novoCamp, setNovoCamp] = useState({ nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" });
+  const [novoCamp, setNovoCamp] = useState({ nome: "", tipo_formato: "PONTOS_CORRIDOS", genero: "Masculino", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" });
   const [criandoCamp, setCriandoCamp] = useState(false);
   const [msgCamp, setMsgCamp] = useState("");
 
@@ -179,6 +181,7 @@ const Admin = () => {
   const [campEditando, setCampEditando] = useState<number | null>(null);
   const [campEditNome, setCampEditNome] = useState("");
   const [campEditFormato, setCampEditFormato] = useState("");
+  const [campEditGenero, setCampEditGenero] = useState("Masculino");
   const [salvandoCamp, setSalvandoCamp] = useState(false);
 
   // Novo time
@@ -312,6 +315,7 @@ const Admin = () => {
     setCampEditando(c.campeonato_id);
     setCampEditNome(c.nome);
     setCampEditFormato(c.tipo_formato);
+    setCampEditGenero(c.genero ?? "Masculino");
   };
 
   const salvarEdicaoCamp = async (campId: number) => {
@@ -319,7 +323,7 @@ const Admin = () => {
     setSalvandoCamp(true);
     try {
       const res = await authFetch(`${API_BASE_URL}/api/campeonatos/${campId}`, {
-        method: "PUT", body: JSON.stringify({ nome: campEditNome, tipo_formato: campEditFormato }),
+        method: "PUT", body: JSON.stringify({ nome: campEditNome, tipo_formato: campEditFormato, genero: campEditGenero }),
       });
       if (res.ok) { setCampEditando(null); fetchCampeonatos(); }
       else { alert(await extrairMensagemErro(res, "Erro ao salvar campeonato.")); }
@@ -354,8 +358,8 @@ const Admin = () => {
     if (!novoCamp.nome.trim()) { setMsgCamp("Preencha o nome do campeonato."); return; }
     setCriandoCamp(true); setMsgCamp("");
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/campeonatos`, { method: "POST", body: JSON.stringify({ nome: novoCamp.nome, tipo_formato: novoCamp.tipo_formato, pontos_vitoria: parseInt(novoCamp.pontos_vitoria), pontos_empate: parseInt(novoCamp.pontos_empate), pontos_derrota: parseInt(novoCamp.pontos_derrota) }) });
-      if (res.ok) { setMsgCamp("✅ Campeonato criado!"); setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" }); fetchCampeonatos(); setTimeout(() => setAba("campeonatos"), 1500); }
+      const res = await authFetch(`${API_BASE_URL}/api/campeonatos`, { method: "POST", body: JSON.stringify({ nome: novoCamp.nome, tipo_formato: novoCamp.tipo_formato, genero: novoCamp.genero, pontos_vitoria: parseInt(novoCamp.pontos_vitoria), pontos_empate: parseInt(novoCamp.pontos_empate), pontos_derrota: parseInt(novoCamp.pontos_derrota) }) });
+      if (res.ok) { setMsgCamp("✅ Campeonato criado!"); setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", genero: "Masculino", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" }); fetchCampeonatos(); setTimeout(() => setAba("campeonatos"), 1500); }
       else { setMsgCamp(await extrairMensagemErro(res, "Erro ao criar campeonato.")); }
     } catch (err) {
       setMsgCamp("Erro de conexão ao criar campeonato.");
@@ -661,6 +665,9 @@ const Admin = () => {
                         <select value={campEditFormato} onChange={(e) => setCampEditFormato(e.target.value)} className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
                           {FORMATOS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                         </select>
+                        <select value={campEditGenero} onChange={(e) => setCampEditGenero(e.target.value)} className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
+                          {GENEROS.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
                         <button onClick={() => salvarEdicaoCamp(c.campeonato_id)} disabled={salvandoCamp} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90">
                           <Save className="w-3 h-3" /> Salvar
                         </button>
@@ -670,7 +677,7 @@ const Admin = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-sm">{c.nome}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{FORMATOS.find(f => f.value === c.tipo_formato)?.label ?? c.tipo_formato}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{FORMATOS.find(f => f.value === c.tipo_formato)?.label ?? c.tipo_formato} · {c.genero}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{c.ativo ? "Ativo" : "Encerrado"}</span>
@@ -706,6 +713,12 @@ const Admin = () => {
                   {FORMATOS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Gênero</label>
+                <select value={novoCamp.genero} onChange={(e) => setNovoCamp(p => ({ ...p, genero: e.target.value }))} className={inputClass}>
+                  {GENEROS.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
               <div className="border rounded-xl p-4 bg-muted/30">
                 <p className="text-sm font-medium mb-3">Pontuação</p>
                 <div className="grid grid-cols-3 gap-3">
@@ -720,7 +733,7 @@ const Admin = () => {
               {msgCamp && <p className={`text-sm font-medium ${msgCamp.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgCamp}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={criarCampeonato} disabled={criandoCamp} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoCamp ? "Criando..." : "Criar Campeonato"}</button>
-                <button onClick={() => setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+                <button onClick={() => setNovoCamp({ nome: "", tipo_formato: "PONTOS_CORRIDOS", genero: "Masculino", pontos_vitoria: "3", pontos_empate: "1", pontos_derrota: "0" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
