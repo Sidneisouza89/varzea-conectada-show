@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   ArrowLeft, Users, Layers, Shuffle, Trophy, Loader2,
-  CheckCircle2, AlertTriangle, Plus, TrendingUp, Zap
+  CheckCircle2, AlertTriangle, Plus, TrendingUp, Zap, ArrowRightCircle
 } from "lucide-react";
 
 interface TimeInscrito {
@@ -82,6 +82,17 @@ const AdminGruposMataMata = () => {
     fase: number;
     total_confrontos: number;
     teve_bye: boolean;
+  } | null>(null);
+
+  // --- Avançar fase (seed geral) ---
+  const [dataInicioProxFase, setDataInicioProxFase] = useState("");
+  const [loadingProxFase, setLoadingProxFase] = useState(false);
+  const [msgProxFase, setMsgProxFase] = useState<Mensagem>(null);
+  const [resultadoProxFase, setResultadoProxFase] = useState<{
+    encerrado: boolean;
+    fase?: number;
+    total_confrontos?: number;
+    classificacao_geral_usada?: { time_id: number; nome: string; pts: number; v: number; sg: number }[];
   } | null>(null);
 
   const nomeDoTime = (timeId: number) => times.find((t) => t.id === timeId)?.nome_oficial ?? `Time #${timeId}`;
@@ -250,6 +261,44 @@ const AdminGruposMataMata = () => {
       setMsgMM({ tipo: "erro", texto: "Erro de conexão ao gerar mata-mata." });
     } finally {
       setLoadingMM(false);
+    }
+  };
+
+  const handleAvancarFase = async () => {
+    if (!dataInicioProxFase) {
+      setMsgProxFase({ tipo: "erro", texto: "Informe a data de início da próxima fase." });
+      return;
+    }
+    setLoadingProxFase(true);
+    setMsgProxFase(null);
+    setResultadoProxFase(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campeonatos/${id}/mata-mata/proxima-fase-seed-geral`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ data_inicio: toBackendDateTime(dataInicioProxFase) }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMsgProxFase({ tipo: "sucesso", texto: data.message });
+        setResultadoProxFase({
+          encerrado: !!data.encerrado,
+          fase: data.fase,
+          total_confrontos: data.total_confrontos,
+          classificacao_geral_usada: data.classificacao_geral_usada,
+        });
+      } else {
+        const extra = data.jogos_pendentes
+          ? ` (jogos pendentes: ${data.jogos_pendentes.join(", ")})`
+          : data.confrontos_empatados
+          ? ` (confrontos empatados sem pênaltis: ${data.confrontos_empatados.join(", ")})`
+          : "";
+        setMsgProxFase({ tipo: "erro", texto: `${data.message ?? "Erro ao avançar fase."}${extra}` });
+      }
+    } catch (err) {
+      setMsgProxFase({ tipo: "erro", texto: "Erro de conexão ao avançar fase." });
+    } finally {
+      setLoadingProxFase(false);
     }
   };
 
@@ -564,6 +613,73 @@ const AdminGruposMataMata = () => {
           </button>
           <p className="text-xs text-muted-foreground mt-2 text-center">
             ⚠️ Todos os jogos da fase de grupos precisam estar finalizados. Só pode ser gerado uma vez.
+          </p>
+        </section>
+
+        {/* ETAPA 4: AVANÇAR FASE (SEED GERAL) */}
+        <section className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 mt-6">
+          <h2 className="flex items-center gap-2 font-bold text-lg mb-3">
+            <ArrowRightCircle className="w-5 h-5 text-primary" /> 4. Avançar Fase (Quartas → Semi → Final)
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            Use isso depois que <strong>todos os jogos da fase atual</strong> (Quartas, Semifinal, etc)
+            estiverem com o placar registrado como Finalizado. O sistema soma os pontos de cada time
+            em todas as fases já disputadas, monta a classificação geral, e casa 1º × último, 2º × penúltimo
+            automaticamente — sem precisar sortear ou escolher manualmente.
+          </p>
+
+          <div className="mb-5">
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Data/hora de início da próxima fase</label>
+            <input
+              type="datetime-local"
+              value={dataInicioProxFase}
+              onChange={(e) => setDataInicioProxFase(e.target.value)}
+              className="w-full text-sm rounded-md border bg-background px-3 py-2"
+            />
+          </div>
+
+          {msgProxFase && (
+            <div className={`mb-4 flex items-center gap-2 text-sm rounded-lg px-4 py-2.5 ${
+              msgProxFase.tipo === "sucesso" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            }`}>
+              {msgProxFase.tipo === "sucesso" ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+              {msgProxFase.texto}
+            </div>
+          )}
+
+          {resultadoProxFase?.encerrado && (
+            <div className="mb-5 rounded-lg bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 px-4 py-3 text-sm font-semibold flex items-center gap-2">
+              <Trophy className="w-4 h-4 shrink-0" /> Campeonato encerrado! Confira a mensagem acima pro nome do campeão.
+            </div>
+          )}
+
+          {resultadoProxFase && !resultadoProxFase.encerrado && resultadoProxFase.classificacao_geral_usada && (
+            <div className="mb-5">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Fase {resultadoProxFase.fase} gerada · {resultadoProxFase.total_confrontos} confronto(s) · classificação geral usada:
+              </p>
+              <div className="rounded-lg bg-muted/40 p-3 space-y-1">
+                {resultadoProxFase.classificacao_geral_usada.map((t, idx) => (
+                  <p key={t.time_id} className="text-sm">
+                    <span className="font-semibold">{idx + 1}º</span>{" "}
+                    <span className="text-muted-foreground">{t.nome} ({t.pts} pts, {t.v}V, SG {t.sg > 0 ? `+${t.sg}` : t.sg})</span>
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleAvancarFase}
+            disabled={loadingProxFase}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {loadingProxFase ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightCircle className="w-4 h-4" />}
+            Avançar Fase (Apurar Vencedores)
+          </button>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            ⚠️ Se algum jogo da fase atual ainda não foi finalizado, ou empatou sem pênaltis registrados,
+            o sistema avisa quais jogos faltam resolver.
           </p>
         </section>
       </main>
