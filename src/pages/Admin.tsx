@@ -681,15 +681,13 @@ const Admin = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{c.ativo ? "Ativo" : "Encerrado"}</span>
-                          {c.tipo_formato === "GRUPOS_E_MATA_MATA" && (
-                            <button
-                              onClick={() => navigate(`/admin/campeonatos/${c.campeonato_id}/grupos`)}
-                              className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
-                              title="Gerenciar Grupos & Mata-Mata"
-                            >
-                              <Layers className="w-3.5 h-3.5" /> Grupos
-                            </button>
-                          )}
+                          <button
+                            onClick={() => navigate(`/admin/campeonatos/${c.campeonato_id}/grupos`)}
+                            className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
+                            title="Gerenciar Grupos & Mata-Mata"
+                          >
+                            <Layers className="w-3.5 h-3.5" /> Grupos
+                          </button>
                           <button onClick={() => abrirEdicaoCamp(c)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar campeonato"><Edit3 className="w-4 h-4" /></button>
                         </div>
                       </div>
