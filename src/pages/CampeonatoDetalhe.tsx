@@ -47,6 +47,14 @@ interface Campeonato {
   ativo: boolean;
 }
 
+const formatoLabel: Record<string, string> = {
+  PONTOS_CORRIDOS: "Pontos Corridos",
+  MATA_MATA: "Mata-Mata",
+  GRUPOS_E_MATA_MATA: "Grupos + Mata-Mata",
+  IDA_E_VOLTA: "Ida e Volta",
+  PONTOS_CORRIDOS_PLAYOFFS: "Pontos Corridos + Playoffs",
+};
+
 const CampeonatoDetalhe = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -314,7 +322,9 @@ const CampeonatoDetalhe = () => {
                   {campeonato?.ativo ? "Ativo" : "Encerrado"}
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  {temGrupos ? "Fase de Grupos" : "Pontos Corridos"}
+                  {temGrupos
+                    ? "Fase de Grupos"
+                    : formatoLabel[campeonato?.tipo_formato ?? ""] ?? campeonato?.tipo_formato?.replace(/_/g, " ") ?? "—"}
                 </span>
               </div>
             </div>
