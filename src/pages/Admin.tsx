@@ -334,9 +334,10 @@ const Admin = () => {
     setEnviandoFotoTextoEdit(true); setMsgEditMateria("");
     try {
       const url = await uploadImagemCloudinary(arquivo);
+      const legenda = (window.prompt("Legenda da foto (deixe em branco se não quiser legenda):", "") ?? "").trim();
       const textarea = editConteudoRef.current;
       const posicao = textarea?.selectionStart ?? editConteudo.length;
-      const trecho = `\n![Adicione uma legenda aqui](${url})\n`;
+      const trecho = `\n![${legenda}](${url})\n`;
       const novoTexto = editConteudo.slice(0, posicao) + trecho + editConteudo.slice(posicao);
       setEditConteudo(novoTexto);
       requestAnimationFrame(() => {
@@ -374,14 +375,16 @@ const Admin = () => {
     } finally { setEnviandoImagemNova(false); }
   };
 
-  // Sobe uma foto e cola "![legenda](url)" no ponto onde o cursor estiver dentro do textarea de conteúdo
+  // Sobe uma foto, pergunta a legenda numa caixinha simples, e cola "![legenda](url)" pronto e correto
+  // no ponto onde o cursor estiver dentro do textarea de conteúdo (evita o usuário editar a sintaxe à mão e quebrar ela)
   const handleInserirFotoNoTexto = async (arquivo: File) => {
     setEnviandoFotoTextoNova(true); setMsgPublicacao("");
     try {
       const url = await uploadImagemCloudinary(arquivo);
+      const legenda = (window.prompt("Legenda da foto (deixe em branco se não quiser legenda):", "") ?? "").trim();
       const textarea = novoConteudoRef.current;
       const posicao = textarea?.selectionStart ?? novoConteudo.length;
-      const trecho = `\n![Adicione uma legenda aqui](${url})\n`;
+      const trecho = `\n![${legenda}](${url})\n`;
       const novoTexto = novoConteudo.slice(0, posicao) + trecho + novoConteudo.slice(posicao);
       setNovoConteudo(novoTexto);
       // devolve o foco pro textarea, logo depois do trecho inserido
@@ -1253,7 +1256,7 @@ const Admin = () => {
                   </label>
                 </div>
                 <textarea ref={novoConteudoRef} value={novoConteudo} onChange={(e) => setNovoConteudo(e.target.value)} placeholder="Escreva o conteúdo da matéria aqui... Posicione o cursor onde quiser e clique em 'Inserir Foto no Texto' pra colocar uma imagem no meio." rows={12} className={`${inputClass} resize-none`} />
-                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo — ela entra ali.</p>
+                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo, ela entra ali. Depois vai perguntar a legenda — NÃO edite a linha da foto no texto na mão, pra não quebrar.</p>
               </div>
               {msgPublicacao && <p className={`text-sm font-medium ${msgPublicacao.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgPublicacao}</p>}
               <div className="flex gap-3 pt-2">
@@ -1290,7 +1293,7 @@ const Admin = () => {
                   </label>
                 </div>
                 <textarea ref={editConteudoRef} value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} />
-                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo — ela entra ali.</p>
+                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo, ela entra ali. Depois vai perguntar a legenda — NÃO edite a linha da foto no texto na mão, pra não quebrar.</p>
               </div>
               {msgEditMateria && <p className={`text-sm font-medium ${msgEditMateria.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgEditMateria}</p>}
               <div className="flex gap-3 pt-2">
