@@ -3,13 +3,15 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, Newspaper } from "lucide-react";
+import { ArrowLeft, Clock, Newspaper, Heart, Share2, Check } from "lucide-react";
 
 interface Materia {
   materia_id: number;
   titulo: string;
   conteudo: string;
   data_publicacao: string;
+  imagem_url?: string | null;
+  curtidas?: number;
 }
 
 const MateriaDetalhe = () => {
@@ -18,6 +20,13 @@ const MateriaDetalhe = () => {
   const [materia, setMateria] = useState<Materia | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Curtir
+  const [curtido, setCurtido] = useState(false);
+  const [curtindo, setCurtindo] = useState(false);
+
+  // Compartilhar
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   useEffect(() => {
     const fetchMateria = async () => {
@@ -38,6 +47,51 @@ const MateriaDetalhe = () => {
     };
     fetchMateria();
   }, [id]);
+
+  // Verifica se esse navegador já curtiu essa matéria antes
+  useEffect(() => {
+    if (id && localStorage.getItem(`materia_curtida_${id}`) === "1") {
+      setCurtido(true);
+    }
+  }, [id]);
+
+  const handleCurtir = async () => {
+    if (curtido || curtindo || !materia) return;
+    setCurtindo(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/materias/${materia.materia_id}/curtir`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setMateria((prev) => (prev ? { ...prev, curtidas: data.curtidas } : prev));
+        setCurtido(true);
+        localStorage.setItem(`materia_curtida_${materia.materia_id}`, "1");
+      }
+    } catch (error) {
+      console.error("Erro ao curtir matéria:", error);
+    } finally {
+      setCurtindo(false);
+    }
+  };
+
+  const handleCompartilhar = async () => {
+    if (!materia) return;
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: materia.titulo, url });
+      } catch (error) {
+        // usuário cancelou o compartilhamento nativo, sem problema
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        setLinkCopiado(true);
+        setTimeout(() => setLinkCopiado(false), 2000);
+      } catch (error) {
+        console.error("Erro ao copiar link:", error);
+      }
+    }
+  };
 
   return (
     <div
@@ -86,34 +140,63 @@ const MateriaDetalhe = () => {
 
         {/* Conteúdo */}
         {!loading && materia && (
-          <article className="rounded-2xl border bg-card/80 backdrop-blur-sm p-8 shadow-md">
+          <article className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-md overflow-hidden">
 
-            {/* Meta */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Varzeando</span>
-              <Clock className="w-3 h-3" />
-              <span>{materia.data_publicacao}</span>
-            </div>
+            {materia.imagem_url && (
+              <img src={materia.imagem_url} alt={materia.titulo} className="w-full max-h-[420px] object-cover" />
+            )}
 
-            {/* Título */}
-            <h1 className="text-3xl font-bold mb-6 leading-tight">
-              {materia.titulo}
-            </h1>
+            <div className="p-8">
+              {/* Meta */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+                <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Varzeando</span>
+                <Clock className="w-3 h-3" />
+                <span>{materia.data_publicacao}</span>
+              </div>
 
-            {/* Divisor */}
-            <div className="border-t mb-6" />
+              {/* Título */}
+              <h1 className="text-3xl font-bold mb-6 leading-tight">
+                {materia.titulo}
+              </h1>
 
-            {/* Conteúdo — preserva quebras de linha */}
-            <div className="prose prose-neutral dark:prose-invert max-w-none">
-              {materia.conteudo.split("\n").map((paragrafo, i) =>
-                paragrafo.trim() ? (
-                  <p key={i} className="text-foreground leading-relaxed mb-4">
-                    {paragrafo}
-                  </p>
-                ) : (
-                  <br key={i} />
-                )
-              )}
+              {/* Curtir e Compartilhar */}
+              <div className="flex items-center gap-3 mb-6">
+                <button
+                  onClick={handleCurtir}
+                  disabled={curtindo || curtido}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    curtido
+                      ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                      : "border hover:bg-muted"
+                  } disabled:cursor-default`}
+                >
+                  <Heart className={`w-4 h-4 ${curtido ? "fill-current" : ""}`} />
+                  {materia.curtidas ?? 0}
+                </button>
+                <button
+                  onClick={handleCompartilhar}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border hover:bg-muted transition-colors"
+                >
+                  {linkCopiado ? <Check className="w-4 h-4 text-green-600" /> : <Share2 className="w-4 h-4" />}
+                  {linkCopiado ? "Link copiado!" : "Compartilhar"}
+                </button>
+              </div>
+
+              {/* Divisor */}
+              <div className="border-t mb-6" />
+
+              {/* Conteúdo — preserva quebras de linha */}
+              <div className="prose prose-neutral dark:prose-invert max-w-none">
+                {materia.conteudo.split("\n").map((paragrafo, i) =>
+                  paragrafo.trim() ? (
+                    <p key={i} className="text-foreground leading-relaxed mb-4">
+                      {paragrafo}
+                    </p>
+                  ) : (
+                    <br key={i} />
+                  )
+                )}
+              </div>
             </div>
 
           </article>
