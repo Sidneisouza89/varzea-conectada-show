@@ -5,11 +5,12 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
-  Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone
+  Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone,
+  ImagePlus, Loader2
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
-interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; }
+interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
 interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
@@ -27,6 +28,24 @@ const FORMATOS = [
 ];
 
 const GENEROS = ["Masculino", "Feminino", "Misto"];
+
+// Configuração do Cloudinary pra upload de imagem das matérias (unsigned preset, seguro pro frontend)
+const CLOUDINARY_CLOUD_NAME = "dw8ive72f";
+const CLOUDINARY_UPLOAD_PRESET = "varzeando_materias";
+
+// Sobe uma imagem direto do navegador pro Cloudinary e devolve a URL segura. Lança erro se falhar.
+const uploadImagemCloudinary = async (arquivo: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("file", arquivo);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Falha no upload da imagem.");
+  const data = await res.json();
+  return data.secure_url as string;
+};
 
 type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
 
@@ -165,6 +184,8 @@ const Admin = () => {
   // Nova matéria
   const [novoTitulo, setNovoTitulo] = useState("");
   const [novoConteudo, setNovoConteudo] = useState("");
+  const [novoImagemUrl, setNovoImagemUrl] = useState("");
+  const [enviandoImagemNova, setEnviandoImagemNova] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [msgPublicacao, setMsgPublicacao] = useState("");
 
@@ -172,6 +193,8 @@ const Admin = () => {
   const [materiaEditando, setMateriaEditando] = useState<Materia | null>(null);
   const [editTitulo, setEditTitulo] = useState("");
   const [editConteudo, setEditConteudo] = useState("");
+  const [editImagemUrl, setEditImagemUrl] = useState("");
+  const [enviandoImagemEdit, setEnviandoImagemEdit] = useState(false);
   const [salvandoMateria, setSalvandoMateria] = useState(false);
   const [msgEditMateria, setMsgEditMateria] = useState("");
 
@@ -288,8 +311,19 @@ const Admin = () => {
     setMateriaEditando(m);
     setEditTitulo(m.titulo);
     setEditConteudo(m.conteudo ?? "");
+    setEditImagemUrl(m.imagem_url ?? "");
     setMsgEditMateria("");
     setAba("editar_materia");
+  };
+
+  const handleUploadImagemEdit = async (arquivo: File) => {
+    setEnviandoImagemEdit(true); setMsgEditMateria("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      setEditImagemUrl(url);
+    } catch (err) {
+      setMsgEditMateria("Erro ao enviar a imagem. Tenta de novo.");
+    } finally { setEnviandoImagemEdit(false); }
   };
 
   const salvarEdicaoMateria = async () => {
@@ -298,7 +332,7 @@ const Admin = () => {
     setSalvandoMateria(true); setMsgEditMateria("");
     try {
       const res = await authFetch(`${API_BASE_URL}/api/materias/${materiaEditando.materia_id}`, {
-        method: "PUT", body: JSON.stringify({ titulo: editTitulo, conteudo: editConteudo }),
+        method: "PUT", body: JSON.stringify({ titulo: editTitulo, conteudo: editConteudo, imagem_url: editImagemUrl }),
       });
       if (res.ok) { setMsgEditMateria("✅ Matéria atualizada!"); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
       else { setMsgEditMateria(await extrairMensagemErro(res, "Erro ao salvar.")); }
@@ -307,12 +341,22 @@ const Admin = () => {
     } finally { setSalvandoMateria(false); }
   };
 
+  const handleUploadImagemNova = async (arquivo: File) => {
+    setEnviandoImagemNova(true); setMsgPublicacao("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      setNovoImagemUrl(url);
+    } catch (err) {
+      setMsgPublicacao("Erro ao enviar a imagem. Tenta de novo.");
+    } finally { setEnviandoImagemNova(false); }
+  };
+
   const publicarMateria = async () => {
     if (!novoTitulo.trim() || !novoConteudo.trim()) { setMsgPublicacao("Preencha título e conteúdo."); return; }
     setPublicando(true); setMsgPublicacao("");
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/materias`, { method: "POST", body: JSON.stringify({ titulo: novoTitulo, conteudo: novoConteudo }) });
-      if (res.ok) { setMsgPublicacao("✅ Matéria publicada!"); setNovoTitulo(""); setNovoConteudo(""); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
+      const res = await authFetch(`${API_BASE_URL}/api/materias`, { method: "POST", body: JSON.stringify({ titulo: novoTitulo, conteudo: novoConteudo, imagem_url: novoImagemUrl || null }) });
+      if (res.ok) { setMsgPublicacao("✅ Matéria publicada!"); setNovoTitulo(""); setNovoConteudo(""); setNovoImagemUrl(""); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
       else { setMsgPublicacao(await extrairMensagemErro(res, "Erro ao publicar.")); }
     } catch (err) {
       setMsgPublicacao("Erro de conexão ao publicar.");
@@ -1146,11 +1190,20 @@ const Admin = () => {
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> Nova Matéria</h2>
             <div className="space-y-4">
               <div><label className="text-sm font-medium mb-1.5 block">Título</label><input type="text" value={novoTitulo} onChange={(e) => setNovoTitulo(e.target.value)} placeholder="Ex: Copa Elite Diadema 2026 começa com tudo!" className={inputClass} /></div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Foto (opcional)</label>
+                {novoImagemUrl && <img src={novoImagemUrl} alt="Prévia" className="w-full max-h-56 object-cover rounded-xl mb-2" />}
+                <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-4 text-sm text-muted-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                  {enviandoImagemNova ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                  {enviandoImagemNova ? "Enviando..." : novoImagemUrl ? "Trocar foto" : "Escolher foto"}
+                  <input type="file" accept="image/*" className="hidden" disabled={enviandoImagemNova} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadImagemNova(f); }} />
+                </label>
+              </div>
               <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={novoConteudo} onChange={(e) => setNovoConteudo(e.target.value)} placeholder="Escreva o conteúdo da matéria aqui..." rows={12} className={`${inputClass} resize-none`} /></div>
               {msgPublicacao && <p className={`text-sm font-medium ${msgPublicacao.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgPublicacao}</p>}
               <div className="flex gap-3 pt-2">
-                <button onClick={publicarMateria} disabled={publicando} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{publicando ? "Publicando..." : "Publicar Matéria"}</button>
-                <button onClick={() => { setNovoTitulo(""); setNovoConteudo(""); setMsgPublicacao(""); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+                <button onClick={publicarMateria} disabled={publicando || enviandoImagemNova} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{publicando ? "Publicando..." : "Publicar Matéria"}</button>
+                <button onClick={() => { setNovoTitulo(""); setNovoConteudo(""); setNovoImagemUrl(""); setMsgPublicacao(""); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
@@ -1162,10 +1215,20 @@ const Admin = () => {
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> Editar Matéria</h2>
             <div className="space-y-4">
               <div><label className="text-sm font-medium mb-1.5 block">Título</label><input type="text" value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} className={inputClass} /></div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Foto (opcional)</label>
+                {editImagemUrl && <img src={editImagemUrl} alt="Prévia" className="w-full max-h-56 object-cover rounded-xl mb-2" />}
+                <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-4 text-sm text-muted-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                  {enviandoImagemEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                  {enviandoImagemEdit ? "Enviando..." : editImagemUrl ? "Trocar foto" : "Escolher foto"}
+                  <input type="file" accept="image/*" className="hidden" disabled={enviandoImagemEdit} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadImagemEdit(f); }} />
+                </label>
+                {editImagemUrl && <button onClick={() => setEditImagemUrl("")} className="text-xs text-destructive mt-1.5 hover:underline">Remover foto</button>}
+              </div>
               <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} /></div>
               {msgEditMateria && <p className={`text-sm font-medium ${msgEditMateria.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgEditMateria}</p>}
               <div className="flex gap-3 pt-2">
-                <button onClick={salvarEdicaoMateria} disabled={salvandoMateria} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{salvandoMateria ? "Salvando..." : "Salvar Alterações"}</button>
+                <button onClick={salvarEdicaoMateria} disabled={salvandoMateria || enviandoImagemEdit} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{salvandoMateria ? "Salvando..." : "Salvar Alterações"}</button>
                 <button onClick={() => { setAba("materias"); setMateriaEditando(null); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Cancelar</button>
               </div>
             </div>
