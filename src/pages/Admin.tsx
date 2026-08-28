@@ -5,11 +5,12 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
-  Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone
+  Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone,
+  ImagePlus, Loader2
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
-interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; }
+interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
 interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
@@ -27,6 +28,24 @@ const FORMATOS = [
 ];
 
 const GENEROS = ["Masculino", "Feminino", "Misto"];
+
+// Configuração do Cloudinary pra upload de imagem das matérias (unsigned preset, seguro pro frontend)
+const CLOUDINARY_CLOUD_NAME = "dw8ive72f";
+const CLOUDINARY_UPLOAD_PRESET = "varzeando_materias";
+
+// Sobe uma imagem direto do navegador pro Cloudinary e devolve a URL segura. Lança erro se falhar.
+const uploadImagemCloudinary = async (arquivo: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("file", arquivo);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Falha no upload da imagem.");
+  const data = await res.json();
+  return data.secure_url as string;
+};
 
 type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
 
@@ -50,6 +69,14 @@ const paraDatetimeLocal = (dataHoraBr: string) => {
   if (!m) return "";
   const [, dd, mm, yyyy, hh, min] = m;
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+};
+
+// Converte "DD/MM/YYYY HH:mm" em Date, pra permitir ordenação cronológica real na aba Jogos
+const paraData = (dataHoraBr: string): Date => {
+  const m = dataHoraBr?.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if (!m) return new Date(0);
+  const [, dd, mm, yyyy, hh, min] = m;
+  return new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
 };
 
 // Converte "YYYY-MM-DDTHH:mm" (valor do input datetime-local) para "YYYY-MM-DD HH:MM:SS" (formato exigido pelo backend na rota /reagendar)
@@ -157,6 +184,10 @@ const Admin = () => {
   // Nova matéria
   const [novoTitulo, setNovoTitulo] = useState("");
   const [novoConteudo, setNovoConteudo] = useState("");
+  const [novoImagemUrl, setNovoImagemUrl] = useState("");
+  const [enviandoImagemNova, setEnviandoImagemNova] = useState(false);
+  const [enviandoFotoTextoNova, setEnviandoFotoTextoNova] = useState(false);
+  const novoConteudoRef = useRef<HTMLTextAreaElement>(null);
   const [publicando, setPublicando] = useState(false);
   const [msgPublicacao, setMsgPublicacao] = useState("");
 
@@ -164,6 +195,10 @@ const Admin = () => {
   const [materiaEditando, setMateriaEditando] = useState<Materia | null>(null);
   const [editTitulo, setEditTitulo] = useState("");
   const [editConteudo, setEditConteudo] = useState("");
+  const [editImagemUrl, setEditImagemUrl] = useState("");
+  const [enviandoImagemEdit, setEnviandoImagemEdit] = useState(false);
+  const [enviandoFotoTextoEdit, setEnviandoFotoTextoEdit] = useState(false);
+  const editConteudoRef = useRef<HTMLTextAreaElement>(null);
   const [salvandoMateria, setSalvandoMateria] = useState(false);
   const [msgEditMateria, setMsgEditMateria] = useState("");
 
@@ -280,8 +315,39 @@ const Admin = () => {
     setMateriaEditando(m);
     setEditTitulo(m.titulo);
     setEditConteudo(m.conteudo ?? "");
+    setEditImagemUrl(m.imagem_url ?? "");
     setMsgEditMateria("");
     setAba("editar_materia");
+  };
+
+  const handleUploadImagemEdit = async (arquivo: File) => {
+    setEnviandoImagemEdit(true); setMsgEditMateria("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      setEditImagemUrl(url);
+    } catch (err) {
+      setMsgEditMateria("Erro ao enviar a imagem. Tenta de novo.");
+    } finally { setEnviandoImagemEdit(false); }
+  };
+
+  const handleInserirFotoNoTextoEdit = async (arquivo: File) => {
+    setEnviandoFotoTextoEdit(true); setMsgEditMateria("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      const legenda = (window.prompt("Legenda da foto (deixe em branco se não quiser legenda):", "") ?? "").trim();
+      const textarea = editConteudoRef.current;
+      const posicao = textarea?.selectionStart ?? editConteudo.length;
+      const trecho = `\n![${legenda}](${url})\n`;
+      const novoTexto = editConteudo.slice(0, posicao) + trecho + editConteudo.slice(posicao);
+      setEditConteudo(novoTexto);
+      requestAnimationFrame(() => {
+        textarea?.focus();
+        const novaPosicao = posicao + trecho.length;
+        textarea?.setSelectionRange(novaPosicao, novaPosicao);
+      });
+    } catch (err) {
+      setMsgEditMateria("Erro ao enviar a foto pro texto. Tenta de novo.");
+    } finally { setEnviandoFotoTextoEdit(false); }
   };
 
   const salvarEdicaoMateria = async () => {
@@ -290,7 +356,7 @@ const Admin = () => {
     setSalvandoMateria(true); setMsgEditMateria("");
     try {
       const res = await authFetch(`${API_BASE_URL}/api/materias/${materiaEditando.materia_id}`, {
-        method: "PUT", body: JSON.stringify({ titulo: editTitulo, conteudo: editConteudo }),
+        method: "PUT", body: JSON.stringify({ titulo: editTitulo, conteudo: editConteudo, imagem_url: editImagemUrl }),
       });
       if (res.ok) { setMsgEditMateria("✅ Matéria atualizada!"); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
       else { setMsgEditMateria(await extrairMensagemErro(res, "Erro ao salvar.")); }
@@ -299,12 +365,45 @@ const Admin = () => {
     } finally { setSalvandoMateria(false); }
   };
 
+  const handleUploadImagemNova = async (arquivo: File) => {
+    setEnviandoImagemNova(true); setMsgPublicacao("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      setNovoImagemUrl(url);
+    } catch (err) {
+      setMsgPublicacao("Erro ao enviar a imagem. Tenta de novo.");
+    } finally { setEnviandoImagemNova(false); }
+  };
+
+  // Sobe uma foto, pergunta a legenda numa caixinha simples, e cola "![legenda](url)" pronto e correto
+  // no ponto onde o cursor estiver dentro do textarea de conteúdo (evita o usuário editar a sintaxe à mão e quebrar ela)
+  const handleInserirFotoNoTexto = async (arquivo: File) => {
+    setEnviandoFotoTextoNova(true); setMsgPublicacao("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      const legenda = (window.prompt("Legenda da foto (deixe em branco se não quiser legenda):", "") ?? "").trim();
+      const textarea = novoConteudoRef.current;
+      const posicao = textarea?.selectionStart ?? novoConteudo.length;
+      const trecho = `\n![${legenda}](${url})\n`;
+      const novoTexto = novoConteudo.slice(0, posicao) + trecho + novoConteudo.slice(posicao);
+      setNovoConteudo(novoTexto);
+      // devolve o foco pro textarea, logo depois do trecho inserido
+      requestAnimationFrame(() => {
+        textarea?.focus();
+        const novaPosicao = posicao + trecho.length;
+        textarea?.setSelectionRange(novaPosicao, novaPosicao);
+      });
+    } catch (err) {
+      setMsgPublicacao("Erro ao enviar a foto pro texto. Tenta de novo.");
+    } finally { setEnviandoFotoTextoNova(false); }
+  };
+
   const publicarMateria = async () => {
     if (!novoTitulo.trim() || !novoConteudo.trim()) { setMsgPublicacao("Preencha título e conteúdo."); return; }
     setPublicando(true); setMsgPublicacao("");
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/materias`, { method: "POST", body: JSON.stringify({ titulo: novoTitulo, conteudo: novoConteudo }) });
-      if (res.ok) { setMsgPublicacao("✅ Matéria publicada!"); setNovoTitulo(""); setNovoConteudo(""); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
+      const res = await authFetch(`${API_BASE_URL}/api/materias`, { method: "POST", body: JSON.stringify({ titulo: novoTitulo, conteudo: novoConteudo, imagem_url: novoImagemUrl || null }) });
+      if (res.ok) { setMsgPublicacao("✅ Matéria publicada!"); setNovoTitulo(""); setNovoConteudo(""); setNovoImagemUrl(""); fetchMaterias(); setTimeout(() => setAba("materias"), 1500); }
       else { setMsgPublicacao(await extrairMensagemErro(res, "Erro ao publicar.")); }
     } catch (err) {
       setMsgPublicacao("Erro de conexão ao publicar.");
@@ -738,7 +837,73 @@ const Admin = () => {
         )}
 
         {/* ABA: JOGOS */}
-        {aba === "jogos" && (
+        {aba === "jogos" && (() => {
+          const jogosOrdenados = [...jogos].sort((a, b) => paraData(a.data_hora).getTime() - paraData(b.data_hora).getTime());
+          const jogosNaoEncerrados = jogosOrdenados.filter((j) => j.status !== "Finalizado");
+          const jogosEncerrados = jogosOrdenados.filter((j) => j.status === "Finalizado");
+
+          const renderJogoCard = (j: Jogo) => (
+            <div key={j.jogo_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="font-medium text-sm">{j.mandante} <span className="text-muted-foreground">vs</span> {j.visitante}</p>
+                  <p className="text-xs text-muted-foreground">{j.campeonato} · {j.data_hora}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
+                  <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
+                    {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => reagendando === j.jogo_id ? setReagendando(null) : abrirReagendamento(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Reagendar jogo">
+                    {reagendando === j.jogo_id ? <X className="w-4 h-4" /> : <CalendarClock className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+              {j.status !== "Finalizado" && editando !== j.jogo_id && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
+                  <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.m ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], m: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-muted-foreground font-bold">×</span>
+                  <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.v ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], v: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
+                  <button onClick={() => finalizarJogo(j.jogo_id)} disabled={finalizando === j.jogo_id} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                    {finalizando === j.jogo_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Finalizar
+                  </button>
+                </div>
+              )}
+              {editando === j.jogo_id && (
+                <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                  <Edit3 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
+                  <input type="number" min="0" value={placarEdit.m} onChange={(e) => setPlacarEdit(p => ({ ...p, m: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-muted-foreground font-bold">×</span>
+                  <input type="number" min="0" value={placarEdit.v} onChange={(e) => setPlacarEdit(p => ({ ...p, v: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
+                  <button onClick={() => salvarEdicao(j.jogo_id)} disabled={salvandoEdit} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                    {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                  </button>
+                  <button onClick={() => setEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
+                </div>
+              )}
+              {reagendando === j.jogo_id && (
+                <div className="flex flex-wrap items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                  <CalendarClock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <input type="datetime-local" value={reagendarForm.data_hora} onChange={(e) => setReagendarForm(p => ({ ...p, data_hora: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <select value={reagendarForm.estadio_id} onChange={(e) => setReagendarForm(p => ({ ...p, estadio_id: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="">Manter estádio atual</option>
+                    {estadios.map((e) => <option key={e.id} value={e.id}>{e.apelido || e.nome_oficial}</option>)}
+                  </select>
+                  <button onClick={() => salvarReagendamento(j.jogo_id)} disabled={salvandoReagendamento} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                    {salvandoReagendamento ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Reagendar
+                  </button>
+                  <button onClick={() => setReagendando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
+                </div>
+              )}
+            </div>
+          );
+
+          return (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="font-bold text-lg">Jogos</h2>
@@ -749,71 +914,28 @@ const Admin = () => {
             </div>
             {loadingJogos ? <div className="p-8 text-center text-muted-foreground">Carregando...</div> :
               jogos.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum jogo cadastrado.</div> : (
-              <div className="divide-y">
-                {jogos.map((j) => (
-                  <div key={j.jogo_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-sm">{j.mandante} <span className="text-muted-foreground">vs</span> {j.visitante}</p>
-                        <p className="text-xs text-muted-foreground">{j.campeonato} · {j.data_hora}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
-                        <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
-                          {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                        </button>
-                        <button onClick={() => reagendando === j.jogo_id ? setReagendando(null) : abrirReagendamento(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Reagendar jogo">
-                          {reagendando === j.jogo_id ? <X className="w-4 h-4" /> : <CalendarClock className="w-4 h-4" />}
-                        </button>
-                        <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                    {j.status !== "Finalizado" && editando !== j.jogo_id && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
-                        <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.m ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], m: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-muted-foreground font-bold">×</span>
-                        <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.v ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], v: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
-                        <button onClick={() => finalizarJogo(j.jogo_id)} disabled={finalizando === j.jogo_id} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
-                          {finalizando === j.jogo_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Finalizar
-                        </button>
-                      </div>
-                    )}
-                    {editando === j.jogo_id && (
-                      <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
-                        <Edit3 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
-                        <input type="number" min="0" value={placarEdit.m} onChange={(e) => setPlacarEdit(p => ({ ...p, m: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-muted-foreground font-bold">×</span>
-                        <input type="number" min="0" value={placarEdit.v} onChange={(e) => setPlacarEdit(p => ({ ...p, v: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
-                        <button onClick={() => salvarEdicao(j.jogo_id)} disabled={salvandoEdit} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
-                          {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
-                        </button>
-                        <button onClick={() => setEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
-                      </div>
-                    )}
-                    {reagendando === j.jogo_id && (
-                      <div className="flex flex-wrap items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
-                        <CalendarClock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <input type="datetime-local" value={reagendarForm.data_hora} onChange={(e) => setReagendarForm(p => ({ ...p, data_hora: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <select value={reagendarForm.estadio_id} onChange={(e) => setReagendarForm(p => ({ ...p, estadio_id: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
-                          <option value="">Manter estádio atual</option>
-                          {estadios.map((e) => <option key={e.id} value={e.id}>{e.apelido || e.nome_oficial}</option>)}
-                        </select>
-                        <button onClick={() => salvarReagendamento(j.jogo_id)} disabled={salvandoReagendamento} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
-                          {salvandoReagendamento ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Reagendar
-                        </button>
-                        <button onClick={() => setReagendando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="px-6 py-2.5 bg-muted/50 border-b">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Não Encerrados ({jogosNaoEncerrados.length})</p>
+                </div>
+                {jogosNaoEncerrados.length === 0 ? (
+                  <p className="px-6 py-6 text-sm text-muted-foreground text-center">Nenhum jogo pendente. 🎉</p>
+                ) : (
+                  <div className="divide-y">{jogosNaoEncerrados.map(renderJogoCard)}</div>
+                )}
+                <div className="px-6 py-2.5 bg-muted/50 border-b border-t">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Encerrados ({jogosEncerrados.length})</p>
+                </div>
+                {jogosEncerrados.length === 0 ? (
+                  <p className="px-6 py-6 text-sm text-muted-foreground text-center">Nenhum jogo finalizado ainda.</p>
+                ) : (
+                  <div className="divide-y">{jogosEncerrados.map(renderJogoCard)}</div>
+                )}
+              </>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ABA: NOVO JOGO */}
         {aba === "novo_jogo" && (
@@ -1115,11 +1237,31 @@ const Admin = () => {
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> Nova Matéria</h2>
             <div className="space-y-4">
               <div><label className="text-sm font-medium mb-1.5 block">Título</label><input type="text" value={novoTitulo} onChange={(e) => setNovoTitulo(e.target.value)} placeholder="Ex: Copa Elite Diadema 2026 começa com tudo!" className={inputClass} /></div>
-              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={novoConteudo} onChange={(e) => setNovoConteudo(e.target.value)} placeholder="Escreva o conteúdo da matéria aqui..." rows={12} className={`${inputClass} resize-none`} /></div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Foto (opcional)</label>
+                {novoImagemUrl && <img src={novoImagemUrl} alt="Prévia" className="w-full max-h-56 object-cover rounded-xl mb-2" />}
+                <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-4 text-sm text-muted-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                  {enviandoImagemNova ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                  {enviandoImagemNova ? "Enviando..." : novoImagemUrl ? "Trocar foto" : "Escolher foto"}
+                  <input type="file" accept="image/*" className="hidden" disabled={enviandoImagemNova} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadImagemNova(f); }} />
+                </label>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium block">Conteúdo</label>
+                  <label className="flex items-center gap-1.5 text-xs text-primary font-medium cursor-pointer hover:opacity-80">
+                    {enviandoFotoTextoNova ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                    {enviandoFotoTextoNova ? "Enviando..." : "Inserir Foto no Texto"}
+                    <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoTextoNova} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInserirFotoNoTexto(f); e.target.value = ""; }} />
+                  </label>
+                </div>
+                <textarea ref={novoConteudoRef} value={novoConteudo} onChange={(e) => setNovoConteudo(e.target.value)} placeholder="Escreva o conteúdo da matéria aqui... Posicione o cursor onde quiser e clique em 'Inserir Foto no Texto' pra colocar uma imagem no meio." rows={12} className={`${inputClass} resize-none`} />
+                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo, ela entra ali. Depois vai perguntar a legenda — NÃO edite a linha da foto no texto na mão, pra não quebrar.</p>
+              </div>
               {msgPublicacao && <p className={`text-sm font-medium ${msgPublicacao.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgPublicacao}</p>}
               <div className="flex gap-3 pt-2">
-                <button onClick={publicarMateria} disabled={publicando} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{publicando ? "Publicando..." : "Publicar Matéria"}</button>
-                <button onClick={() => { setNovoTitulo(""); setNovoConteudo(""); setMsgPublicacao(""); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+                <button onClick={publicarMateria} disabled={publicando || enviandoImagemNova} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{publicando ? "Publicando..." : "Publicar Matéria"}</button>
+                <button onClick={() => { setNovoTitulo(""); setNovoConteudo(""); setNovoImagemUrl(""); setMsgPublicacao(""); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
@@ -1131,10 +1273,31 @@ const Admin = () => {
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> Editar Matéria</h2>
             <div className="space-y-4">
               <div><label className="text-sm font-medium mb-1.5 block">Título</label><input type="text" value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} className={inputClass} /></div>
-              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} /></div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Foto (opcional)</label>
+                {editImagemUrl && <img src={editImagemUrl} alt="Prévia" className="w-full max-h-56 object-cover rounded-xl mb-2" />}
+                <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-4 text-sm text-muted-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                  {enviandoImagemEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                  {enviandoImagemEdit ? "Enviando..." : editImagemUrl ? "Trocar foto" : "Escolher foto"}
+                  <input type="file" accept="image/*" className="hidden" disabled={enviandoImagemEdit} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadImagemEdit(f); }} />
+                </label>
+                {editImagemUrl && <button onClick={() => setEditImagemUrl("")} className="text-xs text-destructive mt-1.5 hover:underline">Remover foto</button>}
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium block">Conteúdo</label>
+                  <label className="flex items-center gap-1.5 text-xs text-primary font-medium cursor-pointer hover:opacity-80">
+                    {enviandoFotoTextoEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                    {enviandoFotoTextoEdit ? "Enviando..." : "Inserir Foto no Texto"}
+                    <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoTextoEdit} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInserirFotoNoTextoEdit(f); e.target.value = ""; }} />
+                  </label>
+                </div>
+                <textarea ref={editConteudoRef} value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} />
+                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo, ela entra ali. Depois vai perguntar a legenda — NÃO edite a linha da foto no texto na mão, pra não quebrar.</p>
+              </div>
               {msgEditMateria && <p className={`text-sm font-medium ${msgEditMateria.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgEditMateria}</p>}
               <div className="flex gap-3 pt-2">
-                <button onClick={salvarEdicaoMateria} disabled={salvandoMateria} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{salvandoMateria ? "Salvando..." : "Salvar Alterações"}</button>
+                <button onClick={salvarEdicaoMateria} disabled={salvandoMateria || enviandoImagemEdit} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{salvandoMateria ? "Salvando..." : "Salvar Alterações"}</button>
                 <button onClick={() => { setAba("materias"); setMateriaEditando(null); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Cancelar</button>
               </div>
             </div>
