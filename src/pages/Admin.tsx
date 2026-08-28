@@ -186,6 +186,8 @@ const Admin = () => {
   const [novoConteudo, setNovoConteudo] = useState("");
   const [novoImagemUrl, setNovoImagemUrl] = useState("");
   const [enviandoImagemNova, setEnviandoImagemNova] = useState(false);
+  const [enviandoFotoTextoNova, setEnviandoFotoTextoNova] = useState(false);
+  const novoConteudoRef = useRef<HTMLTextAreaElement>(null);
   const [publicando, setPublicando] = useState(false);
   const [msgPublicacao, setMsgPublicacao] = useState("");
 
@@ -195,6 +197,8 @@ const Admin = () => {
   const [editConteudo, setEditConteudo] = useState("");
   const [editImagemUrl, setEditImagemUrl] = useState("");
   const [enviandoImagemEdit, setEnviandoImagemEdit] = useState(false);
+  const [enviandoFotoTextoEdit, setEnviandoFotoTextoEdit] = useState(false);
+  const editConteudoRef = useRef<HTMLTextAreaElement>(null);
   const [salvandoMateria, setSalvandoMateria] = useState(false);
   const [msgEditMateria, setMsgEditMateria] = useState("");
 
@@ -326,6 +330,25 @@ const Admin = () => {
     } finally { setEnviandoImagemEdit(false); }
   };
 
+  const handleInserirFotoNoTextoEdit = async (arquivo: File) => {
+    setEnviandoFotoTextoEdit(true); setMsgEditMateria("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      const textarea = editConteudoRef.current;
+      const posicao = textarea?.selectionStart ?? editConteudo.length;
+      const trecho = `\n![Adicione uma legenda aqui](${url})\n`;
+      const novoTexto = editConteudo.slice(0, posicao) + trecho + editConteudo.slice(posicao);
+      setEditConteudo(novoTexto);
+      requestAnimationFrame(() => {
+        textarea?.focus();
+        const novaPosicao = posicao + trecho.length;
+        textarea?.setSelectionRange(novaPosicao, novaPosicao);
+      });
+    } catch (err) {
+      setMsgEditMateria("Erro ao enviar a foto pro texto. Tenta de novo.");
+    } finally { setEnviandoFotoTextoEdit(false); }
+  };
+
   const salvarEdicaoMateria = async () => {
     if (!materiaEditando) return;
     if (!editTitulo.trim() || !editConteudo.trim()) { setMsgEditMateria("Preencha título e conteúdo."); return; }
@@ -349,6 +372,27 @@ const Admin = () => {
     } catch (err) {
       setMsgPublicacao("Erro ao enviar a imagem. Tenta de novo.");
     } finally { setEnviandoImagemNova(false); }
+  };
+
+  // Sobe uma foto e cola "![legenda](url)" no ponto onde o cursor estiver dentro do textarea de conteúdo
+  const handleInserirFotoNoTexto = async (arquivo: File) => {
+    setEnviandoFotoTextoNova(true); setMsgPublicacao("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      const textarea = novoConteudoRef.current;
+      const posicao = textarea?.selectionStart ?? novoConteudo.length;
+      const trecho = `\n![Adicione uma legenda aqui](${url})\n`;
+      const novoTexto = novoConteudo.slice(0, posicao) + trecho + novoConteudo.slice(posicao);
+      setNovoConteudo(novoTexto);
+      // devolve o foco pro textarea, logo depois do trecho inserido
+      requestAnimationFrame(() => {
+        textarea?.focus();
+        const novaPosicao = posicao + trecho.length;
+        textarea?.setSelectionRange(novaPosicao, novaPosicao);
+      });
+    } catch (err) {
+      setMsgPublicacao("Erro ao enviar a foto pro texto. Tenta de novo.");
+    } finally { setEnviandoFotoTextoNova(false); }
   };
 
   const publicarMateria = async () => {
@@ -1199,7 +1243,18 @@ const Admin = () => {
                   <input type="file" accept="image/*" className="hidden" disabled={enviandoImagemNova} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadImagemNova(f); }} />
                 </label>
               </div>
-              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={novoConteudo} onChange={(e) => setNovoConteudo(e.target.value)} placeholder="Escreva o conteúdo da matéria aqui..." rows={12} className={`${inputClass} resize-none`} /></div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium block">Conteúdo</label>
+                  <label className="flex items-center gap-1.5 text-xs text-primary font-medium cursor-pointer hover:opacity-80">
+                    {enviandoFotoTextoNova ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                    {enviandoFotoTextoNova ? "Enviando..." : "Inserir Foto no Texto"}
+                    <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoTextoNova} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInserirFotoNoTexto(f); e.target.value = ""; }} />
+                  </label>
+                </div>
+                <textarea ref={novoConteudoRef} value={novoConteudo} onChange={(e) => setNovoConteudo(e.target.value)} placeholder="Escreva o conteúdo da matéria aqui... Posicione o cursor onde quiser e clique em 'Inserir Foto no Texto' pra colocar uma imagem no meio." rows={12} className={`${inputClass} resize-none`} />
+                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo — ela entra ali.</p>
+              </div>
               {msgPublicacao && <p className={`text-sm font-medium ${msgPublicacao.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgPublicacao}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={publicarMateria} disabled={publicando || enviandoImagemNova} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{publicando ? "Publicando..." : "Publicar Matéria"}</button>
@@ -1225,7 +1280,18 @@ const Admin = () => {
                 </label>
                 {editImagemUrl && <button onClick={() => setEditImagemUrl("")} className="text-xs text-destructive mt-1.5 hover:underline">Remover foto</button>}
               </div>
-              <div><label className="text-sm font-medium mb-1.5 block">Conteúdo</label><textarea value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} /></div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium block">Conteúdo</label>
+                  <label className="flex items-center gap-1.5 text-xs text-primary font-medium cursor-pointer hover:opacity-80">
+                    {enviandoFotoTextoEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                    {enviandoFotoTextoEdit ? "Enviando..." : "Inserir Foto no Texto"}
+                    <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoTextoEdit} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInserirFotoNoTextoEdit(f); e.target.value = ""; }} />
+                  </label>
+                </div>
+                <textarea ref={editConteudoRef} value={editConteudo} onChange={(e) => setEditConteudo(e.target.value)} rows={14} className={`${inputClass} resize-none`} />
+                <p className="text-xs text-muted-foreground mt-1">Dica: clique no texto onde quer a foto antes de escolher o arquivo — ela entra ali.</p>
+              </div>
               {msgEditMateria && <p className={`text-sm font-medium ${msgEditMateria.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgEditMateria}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={salvarEdicaoMateria} disabled={salvandoMateria || enviandoImagemEdit} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{salvandoMateria ? "Salvando..." : "Salvar Alterações"}</button>
