@@ -52,6 +52,14 @@ const paraDatetimeLocal = (dataHoraBr: string) => {
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 };
 
+// Converte "DD/MM/YYYY HH:mm" em Date, pra permitir ordenação cronológica real na aba Jogos
+const paraData = (dataHoraBr: string): Date => {
+  const m = dataHoraBr?.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if (!m) return new Date(0);
+  const [, dd, mm, yyyy, hh, min] = m;
+  return new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
+};
+
 // Converte "YYYY-MM-DDTHH:mm" (valor do input datetime-local) para "YYYY-MM-DD HH:MM:SS" (formato exigido pelo backend na rota /reagendar)
 const paraFormatoBackend = (isoLocal: string) => `${isoLocal.replace("T", " ")}:00`;
 
@@ -738,7 +746,73 @@ const Admin = () => {
         )}
 
         {/* ABA: JOGOS */}
-        {aba === "jogos" && (
+        {aba === "jogos" && (() => {
+          const jogosOrdenados = [...jogos].sort((a, b) => paraData(a.data_hora).getTime() - paraData(b.data_hora).getTime());
+          const jogosNaoEncerrados = jogosOrdenados.filter((j) => j.status !== "Finalizado");
+          const jogosEncerrados = jogosOrdenados.filter((j) => j.status === "Finalizado");
+
+          const renderJogoCard = (j: Jogo) => (
+            <div key={j.jogo_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="font-medium text-sm">{j.mandante} <span className="text-muted-foreground">vs</span> {j.visitante}</p>
+                  <p className="text-xs text-muted-foreground">{j.campeonato} · {j.data_hora}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
+                  <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
+                    {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => reagendando === j.jogo_id ? setReagendando(null) : abrirReagendamento(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Reagendar jogo">
+                    {reagendando === j.jogo_id ? <X className="w-4 h-4" /> : <CalendarClock className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+              {j.status !== "Finalizado" && editando !== j.jogo_id && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
+                  <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.m ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], m: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-muted-foreground font-bold">×</span>
+                  <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.v ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], v: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
+                  <button onClick={() => finalizarJogo(j.jogo_id)} disabled={finalizando === j.jogo_id} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                    {finalizando === j.jogo_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Finalizar
+                  </button>
+                </div>
+              )}
+              {editando === j.jogo_id && (
+                <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                  <Edit3 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
+                  <input type="number" min="0" value={placarEdit.m} onChange={(e) => setPlacarEdit(p => ({ ...p, m: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-muted-foreground font-bold">×</span>
+                  <input type="number" min="0" value={placarEdit.v} onChange={(e) => setPlacarEdit(p => ({ ...p, v: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
+                  <button onClick={() => salvarEdicao(j.jogo_id)} disabled={salvandoEdit} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                    {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                  </button>
+                  <button onClick={() => setEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
+                </div>
+              )}
+              {reagendando === j.jogo_id && (
+                <div className="flex flex-wrap items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                  <CalendarClock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <input type="datetime-local" value={reagendarForm.data_hora} onChange={(e) => setReagendarForm(p => ({ ...p, data_hora: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <select value={reagendarForm.estadio_id} onChange={(e) => setReagendarForm(p => ({ ...p, estadio_id: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="">Manter estádio atual</option>
+                    {estadios.map((e) => <option key={e.id} value={e.id}>{e.apelido || e.nome_oficial}</option>)}
+                  </select>
+                  <button onClick={() => salvarReagendamento(j.jogo_id)} disabled={salvandoReagendamento} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
+                    {salvandoReagendamento ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Reagendar
+                  </button>
+                  <button onClick={() => setReagendando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
+                </div>
+              )}
+            </div>
+          );
+
+          return (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="font-bold text-lg">Jogos</h2>
@@ -749,71 +823,28 @@ const Admin = () => {
             </div>
             {loadingJogos ? <div className="p-8 text-center text-muted-foreground">Carregando...</div> :
               jogos.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum jogo cadastrado.</div> : (
-              <div className="divide-y">
-                {jogos.map((j) => (
-                  <div key={j.jogo_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-sm">{j.mandante} <span className="text-muted-foreground">vs</span> {j.visitante}</p>
-                        <p className="text-xs text-muted-foreground">{j.campeonato} · {j.data_hora}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
-                        <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
-                          {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                        </button>
-                        <button onClick={() => reagendando === j.jogo_id ? setReagendando(null) : abrirReagendamento(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Reagendar jogo">
-                          {reagendando === j.jogo_id ? <X className="w-4 h-4" /> : <CalendarClock className="w-4 h-4" />}
-                        </button>
-                        <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                    {j.status !== "Finalizado" && editando !== j.jogo_id && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
-                        <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.m ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], m: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-muted-foreground font-bold">×</span>
-                        <input type="number" min="0" placeholder="0" value={placar[j.jogo_id]?.v ?? ""} onChange={(e) => setPlacar((prev) => ({ ...prev, [j.jogo_id]: { ...prev[j.jogo_id], v: e.target.value } }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
-                        <button onClick={() => finalizarJogo(j.jogo_id)} disabled={finalizando === j.jogo_id} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
-                          {finalizando === j.jogo_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Finalizar
-                        </button>
-                      </div>
-                    )}
-                    {editando === j.jogo_id && (
-                      <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
-                        <Edit3 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
-                        <input type="number" min="0" value={placarEdit.m} onChange={(e) => setPlacarEdit(p => ({ ...p, m: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-muted-foreground font-bold">×</span>
-                        <input type="number" min="0" value={placarEdit.v} onChange={(e) => setPlacarEdit(p => ({ ...p, v: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
-                        <button onClick={() => salvarEdicao(j.jogo_id)} disabled={salvandoEdit} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
-                          {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
-                        </button>
-                        <button onClick={() => setEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
-                      </div>
-                    )}
-                    {reagendando === j.jogo_id && (
-                      <div className="flex flex-wrap items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
-                        <CalendarClock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <input type="datetime-local" value={reagendarForm.data_hora} onChange={(e) => setReagendarForm(p => ({ ...p, data_hora: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        <select value={reagendarForm.estadio_id} onChange={(e) => setReagendarForm(p => ({ ...p, estadio_id: e.target.value }))} className="border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
-                          <option value="">Manter estádio atual</option>
-                          {estadios.map((e) => <option key={e.id} value={e.id}>{e.apelido || e.nome_oficial}</option>)}
-                        </select>
-                        <button onClick={() => salvarReagendamento(j.jogo_id)} disabled={salvandoReagendamento} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
-                          {salvandoReagendamento ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Reagendar
-                        </button>
-                        <button onClick={() => setReagendando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="px-6 py-2.5 bg-muted/50 border-b">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Não Encerrados ({jogosNaoEncerrados.length})</p>
+                </div>
+                {jogosNaoEncerrados.length === 0 ? (
+                  <p className="px-6 py-6 text-sm text-muted-foreground text-center">Nenhum jogo pendente. 🎉</p>
+                ) : (
+                  <div className="divide-y">{jogosNaoEncerrados.map(renderJogoCard)}</div>
+                )}
+                <div className="px-6 py-2.5 bg-muted/50 border-b border-t">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Encerrados ({jogosEncerrados.length})</p>
+                </div>
+                {jogosEncerrados.length === 0 ? (
+                  <p className="px-6 py-6 text-sm text-muted-foreground text-center">Nenhum jogo finalizado ainda.</p>
+                ) : (
+                  <div className="divide-y">{jogosEncerrados.map(renderJogoCard)}</div>
+                )}
+              </>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ABA: NOVO JOGO */}
         {aba === "novo_jogo" && (
