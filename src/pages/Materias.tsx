@@ -10,6 +10,7 @@ interface Materia {
   titulo: string;
   conteudo: string;
   data_publicacao: string;
+  imagem_url?: string | null;
 }
 
 const Materias = () => {
@@ -60,23 +61,28 @@ const Materias = () => {
         {/* Destaque — primeira matéria em banner */}
         {!loading && materias.length > 0 && (
           <div
-            className="rounded-2xl border bg-card/80 backdrop-blur-sm p-8 shadow-md mb-10 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5 group"
+            className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-md mb-10 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5 group overflow-hidden"
             onClick={() => navigate(`/materias/${materias[0].materia_id}`)}
           >
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-              <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-xs font-medium">Destaque</span>
-              <Clock className="w-3 h-3" />
-              <span>{materias[0].data_publicacao}</span>
+            {materias[0].imagem_url && (
+              <img src={materias[0].imagem_url} alt={materias[0].titulo} className="w-full h-56 md:h-72 object-cover" />
+            )}
+            <div className="p-8">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-xs font-medium">Destaque</span>
+                <Clock className="w-3 h-3" />
+                <span>{materias[0].data_publicacao}</span>
+              </div>
+              <h2 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
+                {materias[0].titulo}
+              </h2>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                {resumo(materias[0].conteudo, 300)}
+              </p>
+              <span className="inline-flex items-center gap-1 text-primary font-medium text-sm">
+                Ler matéria completa <ChevronRight className="w-4 h-4" />
+              </span>
             </div>
-            <h2 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
-              {materias[0].titulo}
-            </h2>
-            <p className="text-muted-foreground leading-relaxed mb-4">
-              {resumo(materias[0].conteudo, 300)}
-            </p>
-            <span className="inline-flex items-center gap-1 text-primary font-medium text-sm">
-              Ler matéria completa <ChevronRight className="w-4 h-4" />
-            </span>
           </div>
         )}
 
@@ -100,22 +106,27 @@ const Materias = () => {
             {materias.slice(1).map((m) => (
               <div
                 key={m.materia_id}
-                className="rounded-xl border bg-card/80 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer group"
+                className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer group overflow-hidden"
                 onClick={() => navigate(`/materias/${m.materia_id}`)}
               >
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-                  <Clock className="w-3 h-3" />
-                  <span>{m.data_publicacao}</span>
+                {m.imagem_url && (
+                  <img src={m.imagem_url} alt={m.titulo} className="w-full h-40 object-cover" />
+                )}
+                <div className="p-6">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+                    <Clock className="w-3 h-3" />
+                    <span>{m.data_publicacao}</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2 leading-tight group-hover:text-primary transition-colors">
+                    {m.titulo}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                    {resumo(m.conteudo)}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-primary text-sm font-medium">
+                    Ler mais <ChevronRight className="w-3 h-3" />
+                  </span>
                 </div>
-                <h3 className="font-bold text-lg mb-2 leading-tight group-hover:text-primary transition-colors">
-                  {m.titulo}
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                  {resumo(m.conteudo)}
-                </p>
-                <span className="inline-flex items-center gap-1 text-primary text-sm font-medium">
-                  Ler mais <ChevronRight className="w-3 h-3" />
-                </span>
               </div>
             ))}
           </div>
