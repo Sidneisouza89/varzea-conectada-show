@@ -185,17 +185,31 @@ const MateriaDetalhe = () => {
               {/* Divisor */}
               <div className="border-t mb-6" />
 
-              {/* Conteúdo — preserva quebras de linha */}
+              {/* Conteúdo — parágrafos normais + fotos inseridas no meio do texto (sintaxe ![legenda](url)) */}
               <div className="prose prose-neutral dark:prose-invert max-w-none">
-                {materia.conteudo.split("\n").map((paragrafo, i) =>
-                  paragrafo.trim() ? (
+                {materia.conteudo.split("\n").map((linha, i) => {
+                  const matchFoto = linha.trim().match(/^!\[(.*)\]\((https?:\/\/[^\s)]+)\)$/);
+                  if (matchFoto) {
+                    const [, legenda, urlFoto] = matchFoto;
+                    const legendaLimpa = legenda.trim();
+                    const legendaEhPlaceholder = legendaLimpa === "" || legendaLimpa === "Adicione uma legenda aqui";
+                    return (
+                      <figure key={i} className="my-6">
+                        <img src={urlFoto} alt={legendaEhPlaceholder ? materia.titulo : legendaLimpa} className="w-full rounded-xl" />
+                        {!legendaEhPlaceholder && (
+                          <figcaption className="text-center text-sm text-muted-foreground italic mt-2">{legendaLimpa}</figcaption>
+                        )}
+                      </figure>
+                    );
+                  }
+                  return linha.trim() ? (
                     <p key={i} className="text-foreground leading-relaxed mb-4">
-                      {paragrafo}
+                      {linha}
                     </p>
                   ) : (
                     <br key={i} />
-                  )
-                )}
+                  );
+                })}
               </div>
             </div>
 
