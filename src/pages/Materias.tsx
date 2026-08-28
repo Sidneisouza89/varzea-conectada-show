@@ -35,9 +35,15 @@ const Materias = () => {
     fetchMaterias();
   }, []);
 
+  // Remove as linhas de foto embutida (![legenda](url)) antes de gerar o resumo, senão apareceria o link cru no card
+  const limparFotosEmbutidas = (texto: string) =>
+    texto?.replace(/!\[.*?\]\(https?:\/\/[^\s)]+\)/g, "").replace(/\n{2,}/g, "\n").trim();
+
   // Resumo do conteúdo para o card
-  const resumo = (texto: string, max = 160) =>
-    texto?.length > max ? texto.substring(0, max) + "..." : texto;
+  const resumo = (texto: string, max = 160) => {
+    const limpo = limparFotosEmbutidas(texto);
+    return limpo?.length > max ? limpo.substring(0, max) + "..." : limpo;
+  };
 
   return (
     <div
