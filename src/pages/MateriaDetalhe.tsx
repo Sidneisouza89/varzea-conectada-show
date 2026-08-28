@@ -192,11 +192,10 @@ const MateriaDetalhe = () => {
                   if (matchFoto) {
                     const [, legenda, urlFoto] = matchFoto;
                     const legendaLimpa = legenda.trim();
-                    const legendaEhPlaceholder = legendaLimpa === "" || legendaLimpa === "Adicione uma legenda aqui";
                     return (
                       <figure key={i} className="my-6">
-                        <img src={urlFoto} alt={legendaEhPlaceholder ? materia.titulo : legendaLimpa} className="w-full rounded-xl" />
-                        {!legendaEhPlaceholder && (
+                        <img src={urlFoto} alt={legendaLimpa || materia.titulo} className="w-full rounded-xl" />
+                        {legendaLimpa && (
                           <figcaption className="text-center text-sm text-muted-foreground italic mt-2">{legendaLimpa}</figcaption>
                         )}
                       </figure>
