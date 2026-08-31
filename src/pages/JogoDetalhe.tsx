@@ -23,7 +23,9 @@ interface Sumula {
   };
   confronto: {
     mandante: string;
+    mandante_logo?: string | null;
     visitante: string;
+    visitante_logo?: string | null;
   };
   eventos: {
     minuto: string;
@@ -147,8 +149,12 @@ const JogoDetalhe = () => {
               {/* Times e placar */}
               <div className="flex items-center justify-center gap-6">
                 <div className="flex-1 text-right">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl ml-auto mb-2">
-                    {sumula.confronto.mandante[0]}
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl ml-auto mb-2 overflow-hidden">
+                    {sumula.confronto.mandante_logo ? (
+                      <img src={sumula.confronto.mandante_logo} alt={sumula.confronto.mandante} className="w-full h-full object-cover" />
+                    ) : (
+                      sumula.confronto.mandante[0]
+                    )}
                   </div>
                   <p className="font-bold text-lg leading-tight">{sumula.confronto.mandante}</p>
                   <p className="text-xs text-muted-foreground">Casa</p>
@@ -169,8 +175,12 @@ const JogoDetalhe = () => {
                 </div>
 
                 <div className="flex-1 text-left">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl mr-auto mb-2">
-                    {sumula.confronto.visitante[0]}
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl mr-auto mb-2 overflow-hidden">
+                    {sumula.confronto.visitante_logo ? (
+                      <img src={sumula.confronto.visitante_logo} alt={sumula.confronto.visitante} className="w-full h-full object-cover" />
+                    ) : (
+                      sumula.confronto.visitante[0]
+                    )}
                   </div>
                   <p className="font-bold text-lg leading-tight">{sumula.confronto.visitante}</p>
                   <p className="text-xs text-muted-foreground">Visitante</p>
