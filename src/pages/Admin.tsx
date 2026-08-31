@@ -12,7 +12,7 @@ import {
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
 interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
-interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; }
+interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
 interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
@@ -220,13 +220,13 @@ const Admin = () => {
   const [salvandoCamp, setSalvandoCamp] = useState(false);
 
   // Novo time
-  const [novoTimeForm, setNovoTimeForm] = useState({ nome_oficial: "", apelido: "", regiao: "Diadema" });
+  const [novoTimeForm, setNovoTimeForm] = useState({ nome_oficial: "", apelido: "", regiao: "Diadema", logo_url: "" });
   const [criandoTime, setCriandoTime] = useState(false);
   const [msgTime, setMsgTime] = useState("");
 
   // Editar time
   const [timeEditando, setTimeEditando] = useState<Time | null>(null);
-  const [timeEdit, setTimeEdit] = useState({ nome_oficial: "", apelido: "", regiao: "" });
+  const [timeEdit, setTimeEdit] = useState({ nome_oficial: "", apelido: "", regiao: "", logo_url: "" });
   const [salvandoTime, setSalvandoTime] = useState(false);
 
   // Novo estádio
@@ -470,7 +470,7 @@ const Admin = () => {
     setCriandoTime(true); setMsgTime("");
     try {
       const res = await authFetch(`${API_BASE_URL}/api/times`, { method: "POST", body: JSON.stringify(novoTimeForm) });
-      if (res.ok) { setMsgTime("✅ Time cadastrado!"); setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema" }); fetchTimes(); setTimeout(() => setAba("times"), 1500); }
+      if (res.ok) { setMsgTime("✅ Time cadastrado!"); setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema", logo_url: "" }); fetchTimes(); setTimeout(() => setAba("times"), 1500); }
       else { setMsgTime(await extrairMensagemErro(res, "Erro ao cadastrar time.")); }
     } catch (err) {
       setMsgTime("Erro de conexão ao cadastrar time.");
@@ -479,7 +479,7 @@ const Admin = () => {
 
   const abrirEdicaoTime = (t: Time) => {
     setTimeEditando(t);
-    setTimeEdit({ nome_oficial: t.nome_oficial, apelido: t.apelido ?? "", regiao: t.regiao ?? "" });
+    setTimeEdit({ nome_oficial: t.nome_oficial, apelido: t.apelido ?? "", regiao: t.regiao ?? "", logo_url: t.logo_url ?? "" });
   };
 
   const salvarEdicaoTime = async () => {
@@ -1002,6 +1002,7 @@ const Admin = () => {
                           <input value={timeEdit.apelido} onChange={(ev) => setTimeEdit(p => ({ ...p, apelido: ev.target.value }))} placeholder="Apelido" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
                         </div>
                         <input value={timeEdit.regiao} onChange={(ev) => setTimeEdit(p => ({ ...p, regiao: ev.target.value }))} placeholder="Região" className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        <input value={timeEdit.logo_url} onChange={(ev) => setTimeEdit(p => ({ ...p, logo_url: ev.target.value }))} placeholder="URL do brasão (Cloudinary)" className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
                         <div className="flex gap-2">
                           <button onClick={salvarEdicaoTime} disabled={salvandoTime} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
                             {salvandoTime ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
@@ -1012,7 +1013,13 @@ const Admin = () => {
                     ) : (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{t.nome_oficial[0]}</div>
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm overflow-hidden">
+                            {t.logo_url ? (
+                              <img src={t.logo_url} alt={t.nome_oficial} className="w-full h-full object-cover" />
+                            ) : (
+                              t.nome_oficial[0]
+                            )}
+                          </div>
                           <div>
                             <p className="font-medium text-sm">{t.nome_oficial}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{t.apelido && `"${t.apelido}" · `}{t.regiao}</p>
@@ -1038,10 +1045,11 @@ const Admin = () => {
               <div><label className="text-sm font-medium mb-1.5 block">Nome Oficial *</label><input type="text" value={novoTimeForm.nome_oficial} onChange={(e) => setNovoTimeForm(p => ({ ...p, nome_oficial: e.target.value }))} placeholder="Ex: E.C. Diadema" className={inputClass} /></div>
               <div><label className="text-sm font-medium mb-1.5 block">Apelido</label><input type="text" value={novoTimeForm.apelido} onChange={(e) => setNovoTimeForm(p => ({ ...p, apelido: e.target.value }))} placeholder="Ex: Diadema" className={inputClass} /></div>
               <div><label className="text-sm font-medium mb-1.5 block">Região</label><input type="text" value={novoTimeForm.regiao} onChange={(e) => setNovoTimeForm(p => ({ ...p, regiao: e.target.value }))} className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">URL do Brasão (Cloudinary)</label><input type="text" value={novoTimeForm.logo_url} onChange={(e) => setNovoTimeForm(p => ({ ...p, logo_url: e.target.value }))} placeholder="https://res.cloudinary.com/..." className={inputClass} /></div>
               {msgTime && <p className={`text-sm font-medium ${msgTime.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgTime}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={criarTime} disabled={criandoTime} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoTime ? "Salvando..." : "Cadastrar Time"}</button>
-                <button onClick={() => setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+                <button onClick={() => setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema", logo_url: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
