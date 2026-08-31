@@ -8,7 +8,9 @@ import { API_BASE_URL } from "@/lib/api";
 interface Jogo {
   jogo_id: number;
   mandante: string;
+  mandante_logo?: string | null;
   visitante: string;
+  visitante_logo?: string | null;
   campeonato: string;
   data_hora: string;
   status: string;
@@ -103,7 +105,9 @@ const Jogos = () => {
                       key={j.jogo_id}
                       jogoId={j.jogo_id}
                       homeTeam={j.mandante}
+                      homeTeamLogo={j.mandante_logo}
                       awayTeam={j.visitante}
+                      awayTeamLogo={j.visitante_logo}
                       stadium=""
                       time="Ao vivo"
                       championship={j.campeonato}
@@ -124,7 +128,9 @@ const Jogos = () => {
                       key={j.jogo_id}
                       jogoId={j.jogo_id}
                       homeTeam={j.mandante}
+                      homeTeamLogo={j.mandante_logo}
                       awayTeam={j.visitante}
+                      awayTeamLogo={j.visitante_logo}
                       stadium=""
                       time={j.data_hora}
                       championship={j.campeonato}
@@ -145,7 +151,9 @@ const Jogos = () => {
                       key={j.jogo_id}
                       jogoId={j.jogo_id}
                       homeTeam={j.mandante}
+                      homeTeamLogo={j.mandante_logo}
                       awayTeam={j.visitante}
+                      awayTeamLogo={j.visitante_logo}
                       stadium=""
                       time={j.data_hora}
                       championship={j.campeonato}
