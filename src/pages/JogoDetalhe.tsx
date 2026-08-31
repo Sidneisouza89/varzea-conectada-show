@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   ArrowLeft, Trophy, MapPin, Calendar, Clock,
-  CheckCircle2, Swords, Target
+  CheckCircle2, Swords, Target, Share2, Check
 } from "lucide-react";
 
 interface Sumula {
@@ -49,6 +49,7 @@ const JogoDetalhe = () => {
   const [sumula, setSumula] = useState<Sumula | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   useEffect(() => {
     const fetchSumula = async () => {
@@ -79,6 +80,29 @@ const JogoDetalhe = () => {
 
   const [gols_mandante, gols_visitante] = sumula?.partida.placar_final?.split(" x ").map(Number) ?? [0, 0];
   const status = sumula ? statusConfig[sumula.partida.status] ?? { label: sumula.partida.status, color: "bg-muted text-muted-foreground" } : null;
+
+  const handleCompartilhar = async () => {
+    if (!sumula) return;
+    const url = window.location.href;
+    const placarTexto = sumula.partida.status === "Finalizado" ? `${gols_mandante} x ${gols_visitante}` : "VS";
+    const titulo = `${sumula.confronto.mandante} ${placarTexto} ${sumula.confronto.visitante}`;
+    const texto = `${titulo} — ${sumula.partida.campeonato}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: titulo, text: texto, url });
+      } catch (error) {
+        // usuário cancelou o compartilhamento nativo, sem problema
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        setLinkCopiado(true);
+        setTimeout(() => setLinkCopiado(false), 2000);
+      } catch (error) {
+        console.error("Erro ao copiar link:", error);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background"
@@ -152,6 +176,14 @@ const JogoDetalhe = () => {
                   <p className="text-xs text-muted-foreground">Visitante</p>
                 </div>
               </div>
+
+              <button
+                onClick={handleCompartilhar}
+                className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border hover:bg-muted transition-colors"
+              >
+                {linkCopiado ? <Check className="w-4 h-4 text-green-600" /> : <Share2 className="w-4 h-4" />}
+                {linkCopiado ? "Link copiado!" : "Compartilhar"}
+              </button>
             </div>
 
             {/* Informações da partida */}
