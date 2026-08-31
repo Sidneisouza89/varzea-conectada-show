@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   ArrowLeft, Users, Layers, Shuffle, Trophy, Loader2,
-  CheckCircle2, AlertTriangle, Plus, TrendingUp, Zap, ArrowRightCircle
+  CheckCircle2, AlertTriangle, Plus, TrendingUp, Zap, ArrowRightCircle, X
 } from "lucide-react";
 
 interface TimeInscrito {
@@ -47,6 +47,9 @@ const AdminGruposMataMata = () => {
 
   const [campeonato, setCampeonato] = useState<Campeonato | null>(null);
   const [times, setTimes] = useState<TimeInscrito[]>([]);
+  const [todosOsTimes, setTodosOsTimes] = useState<TimeInscrito[]>([]);
+  const [buscaTime, setBuscaTime] = useState("");
+  const [buscaAberta, setBuscaAberta] = useState(false);
   const [gruposAtuais, setGruposAtuais] = useState<Record<string, TimeInscrito[]>>({});
   const [loading, setLoading] = useState(true);
 
@@ -100,14 +103,16 @@ const AdminGruposMataMata = () => {
   const fetchTudo = async () => {
     setLoading(true);
     try {
-      const [resCamp, resTimes, resGrupos] = await Promise.all([
+      const [resCamp, resTimes, resGrupos, resTodosTimes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/campeonatos/${id}`),
         fetch(`${API_BASE_URL}/api/campeonatos/${id}/times`),
         fetch(`${API_BASE_URL}/api/campeonatos/${id}/grupos`),
+        fetch(`${API_BASE_URL}/api/times`),
       ]);
 
       if (resCamp.ok) setCampeonato(await resCamp.json());
       if (resTimes.ok) setTimes(await resTimes.json());
+      if (resTodosTimes.ok) setTodosOsTimes(await resTodosTimes.json());
 
       if (resGrupos.ok) {
         const grupos: Record<string, TimeInscrito[]> = await resGrupos.json();
@@ -136,6 +141,28 @@ const AdminGruposMataMata = () => {
     fetchTudo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const timesFiltrados = buscaTime.trim()
+    ? todosOsTimes.filter(
+        (t) => !times.some((ti) => ti.id === t.id) && t.nome_oficial.toLowerCase().includes(buscaTime.toLowerCase())
+      )
+    : [];
+
+  const handleAdicionarTime = (time: TimeInscrito) => {
+    setTimes((prev) => [...prev, time]);
+    setAtribuicoes((prev) => ({ ...prev, [time.id]: "" }));
+    setBuscaTime("");
+    setBuscaAberta(false);
+  };
+
+  const handleRemoverTime = (timeId: number) => {
+    setTimes((prev) => prev.filter((t) => t.id !== timeId));
+    setAtribuicoes((prev) => {
+      const novo = { ...prev };
+      delete novo[timeId];
+      return novo;
+    });
+  };
 
   const handleAdicionarGrupo = () => {
     const proximaLetra = String.fromCharCode(65 + gruposDisponiveis.length); // A, B, C...
@@ -348,28 +375,72 @@ const AdminGruposMataMata = () => {
             <div className="space-y-2">
               {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}
             </div>
-          ) : times.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-8 text-center">
-              Nenhum time inscrito ainda. Inscreva times no campeonato antes de montar os grupos.
-            </p>
           ) : (
-            <div className="space-y-2">
-              {times.map((time) => (
-                <div key={time.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-4 py-2.5">
-                  <span className="font-medium text-sm">{time.nome_oficial}</span>
-                  <select
-                    value={atribuicoes[time.id] ?? ""}
-                    onChange={(e) => handleMudarGrupo(time.id, e.target.value)}
-                    className="text-sm rounded-md border bg-background px-3 py-1.5"
-                  >
-                    <option value="">Sem grupo</option>
-                    {gruposDisponiveis.map((letra) => (
-                      <option key={letra} value={letra}>Grupo {letra}</option>
-                    ))}
-                  </select>
+            <>
+              {/* Buscar e adicionar time ao campeonato */}
+              <div className="relative mb-4">
+                <input
+                  type="text"
+                  value={buscaTime}
+                  onChange={(e) => { setBuscaTime(e.target.value); setBuscaAberta(true); }}
+                  onFocus={() => setBuscaAberta(true)}
+                  placeholder="Buscar time pra adicionar ao campeonato..."
+                  className="w-full text-sm rounded-lg border bg-background px-4 py-2.5"
+                />
+                {buscaAberta && buscaTime.trim() && (
+                  <div className="absolute z-20 mt-1 w-full rounded-lg border bg-background shadow-lg max-h-56 overflow-y-auto">
+                    {timesFiltrados.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-muted-foreground">Nenhum time encontrado (ou já foi adicionado).</p>
+                    ) : (
+                      timesFiltrados.slice(0, 20).map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleAdicionarTime(t)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted/60 transition-colors"
+                        >
+                          {t.nome_oficial}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {times.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-8 text-center">
+                  Nenhum time adicionado ainda. Usa a busca acima pra achar e adicionar os times desse campeonato.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {times.map((time) => (
+                    <div key={time.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-4 py-2.5">
+                      <span className="font-medium text-sm">{time.nome_oficial}</span>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={atribuicoes[time.id] ?? ""}
+                          onChange={(e) => handleMudarGrupo(time.id, e.target.value)}
+                          className="text-sm rounded-md border bg-background px-3 py-1.5"
+                        >
+                          <option value="">Sem grupo</option>
+                          {gruposDisponiveis.map((letra) => (
+                            <option key={letra} value={letra}>Grupo {letra}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoverTime(time.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          title="Remover time deste campeonato"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
 
           {msgGrupos && (
