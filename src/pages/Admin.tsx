@@ -11,7 +11,7 @@ import {
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
-interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
+interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
@@ -333,6 +333,13 @@ const Admin = () => {
   const campeonatosPermitidos = isMaster
     ? campeonatos
     : campeonatos.filter((c) => meusCampeonatos.some((mc) => mc.campeonato_id === c.campeonato_id));
+
+  // Mesma lógica pra jogos: master vê todos, os demais só veem jogos dos
+  // campeonatos que administram. Amistosos (campeonato_id null) só aparecem
+  // pra master, já que não pertencem a nenhum campeonato escopável.
+  const jogosPermitidos = isMaster
+    ? jogos
+    : jogos.filter((j) => j.campeonato_id !== null && meusCampeonatos.some((mc) => mc.campeonato_id === j.campeonato_id));
 
   const fetchPresidentesDoCamp = async (campId: number) => {
     setCarregandoPresidentes(campId);
@@ -807,7 +814,7 @@ const Admin = () => {
           {[
             ...(isMaster ? [{ icon: Users, count: usuarios.length, label: "Usuários" }] : []),
             { icon: Trophy, count: campeonatosPermitidos.length, label: "Campeonatos" },
-            { icon: Swords, count: jogos.length, label: "Jogos" },
+            { icon: Swords, count: jogosPermitidos.length, label: "Jogos" },
             { icon: Shirt, count: times.length, label: "Times" },
             { icon: MapPin, count: estadios.length, label: "Estádios" },
             { icon: Phone, count: contatos.length, label: "Contatos" },
@@ -1027,7 +1034,7 @@ const Admin = () => {
 
         {/* ABA: JOGOS */}
         {aba === "jogos" && (() => {
-          const jogosOrdenados = [...jogos].sort((a, b) => paraData(a.data_hora).getTime() - paraData(b.data_hora).getTime());
+          const jogosOrdenados = [...jogosPermitidos].sort((a, b) => paraData(a.data_hora).getTime() - paraData(b.data_hora).getTime());
           const jogosNaoEncerrados = jogosOrdenados.filter((j) => j.status !== "Finalizado");
           const jogosEncerrados = jogosOrdenados.filter((j) => j.status === "Finalizado");
 
@@ -1104,7 +1111,7 @@ const Admin = () => {
               </div>
             </div>
             {loadingJogos ? <div className="p-8 text-center text-muted-foreground">Carregando...</div> :
-              jogos.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum jogo cadastrado.</div> : (
+              jogosPermitidos.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum jogo cadastrado.</div> : (
               <>
                 <div className="px-6 py-2.5 bg-muted/50 border-b">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Não Encerrados ({jogosNaoEncerrados.length})</p>
