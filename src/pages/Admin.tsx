@@ -275,8 +275,31 @@ const Admin = () => {
   const [atribuindoPresidente, setAtribuindoPresidente] = useState<number | null>(null);
   const [msgPresidentes, setMsgPresidentes] = useState<Record<number, string>>({});
 
+  // Verificação de acesso ao Admin: master sempre entra; qualquer outro usuário
+  // só entra se tiver pelo menos 1 campeonato atribuído (role escopado via
+  // CampeonatoUsuarioRole). Precisa ser assíncrono porque o role global salvo
+  // no login (user.role) não reflete mais quem é presidente — isso agora só
+  // vive no backend, escopado por campeonato.
+  const [verificandoAcesso, setVerificandoAcesso] = useState(true);
+
   useEffect(() => {
-    if (!user || (user.role !== "master" && user.role !== "presidente")) navigate("/");
+    const verificarAcesso = async () => {
+      if (!user) { navigate("/"); return; }
+      if (user.role === "master") { setVerificandoAcesso(false); return; }
+      try {
+        const res = await authFetch(`${API_BASE_URL}/api/meus-campeonatos-admin`);
+        if (res.ok) {
+          const data: MeuCampeonato[] = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setMeusCampeonatos(data);
+            setVerificandoAcesso(false);
+            return;
+          }
+        }
+      } catch { /* segue pro redirect abaixo */ }
+      navigate("/");
+    };
+    verificarAcesso();
   }, []);
 
   const fetchUsuarios = async () => {
@@ -299,7 +322,10 @@ const Admin = () => {
     } catch { /* silencioso: se falhar, a lista de campeonatos visíveis fica vazia pra não-master */ }
   };
 
-  useEffect(() => { fetchUsuarios(); fetchMaterias(); fetchJogos(); fetchTimes(); fetchCampeonatos(); fetchEstadios(); fetchContatos(); fetchMeusCampeonatos(); }, []);
+  useEffect(() => {
+    if (verificandoAcesso) return;
+    fetchUsuarios(); fetchMaterias(); fetchJogos(); fetchTimes(); fetchCampeonatos(); fetchEstadios(); fetchContatos();
+  }, [verificandoAcesso]);
 
   // Campeonatos que o usuário logado pode de fato administrar: master vê todos,
   // qualquer outro usuário só vê os que aparecem em /api/meus-campeonatos-admin
@@ -754,6 +780,14 @@ const Admin = () => {
   ];
 
   const inputClass = "w-full px-4 py-3 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
+
+  if (verificandoAcesso) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background" style={{ backgroundImage: "linear-gradient(135deg, rgba(232,116,0,0.12) 0%, transparent 50%, rgba(0,51,128,0.12) 100%)", backgroundAttachment: "fixed" }}>
