@@ -16,6 +16,8 @@ interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: st
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
 interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
+interface MeuCampeonato { campeonato_id: number; nome: string; role: string; }
+interface PresidenteAtribuido { usuario_id: number; username: string; }
 
 const ROLES = ["torcedor", "capitao", "delegado", "olheiro", "presidente", "master"];
 
@@ -47,7 +49,7 @@ const uploadImagemCloudinary = async (arquivo: File): Promise<string> => {
   return data.secure_url as string;
 };
 
-type Aba = "usuarios"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
+type Aba = "usuarios"|"presidentes"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
 
 // Mensagem padrão quando a sessão expira de vez (falha até na tentativa de refresh)
 const SESSION_EXPIRED_MSG = "Sua sessão expirou. Saia e entre novamente no Admin para continuar.";
@@ -164,6 +166,7 @@ const Admin = () => {
   const navigate = useNavigate();
   const storedUser = localStorage.getItem("varzeando_user");
   const user = storedUser ? JSON.parse(storedUser) : null;
+  const isMaster = user?.role === "master";
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [materias, setMaterias] = useState<Materia[]>([]);
@@ -172,13 +175,14 @@ const Admin = () => {
   const [campeonatos, setCampeonatos] = useState<Campeonato[]>([]);
   const [estadios, setEstadios] = useState<Estadio[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
+  const [meusCampeonatos, setMeusCampeonatos] = useState<MeuCampeonato[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingMaterias, setLoadingMaterias] = useState(true);
   const [loadingJogos, setLoadingJogos] = useState(true);
   const [loadingTimes, setLoadingTimes] = useState(true);
   const [loadingEstadios, setLoadingEstadios] = useState(true);
   const [loadingContatos, setLoadingContatos] = useState(true);
-  const [aba, setAba] = useState<Aba>(user?.role === "master" ? "usuarios" : "campeonatos");
+  const [aba, setAba] = useState<Aba>(isMaster ? "usuarios" : "campeonatos");
   const [salvando, setSalvando] = useState<number | null>(null);
 
   // Nova matéria
@@ -263,6 +267,14 @@ const Admin = () => {
   const [reagendarForm, setReagendarForm] = useState<{ data_hora: string; estadio_id: string }>({ data_hora: "", estadio_id: "" });
   const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
 
+  // Presidentes por campeonato (aba master-only)
+  const [presidentesPorCamp, setPresidentesPorCamp] = useState<Record<number, PresidenteAtribuido[]>>({});
+  const [carregandoPresidentes, setCarregandoPresidentes] = useState<number | null>(null);
+  const [campExpandido, setCampExpandido] = useState<number | null>(null);
+  const [novoPresidenteId, setNovoPresidenteId] = useState<Record<number, string>>({});
+  const [atribuindoPresidente, setAtribuindoPresidente] = useState<number | null>(null);
+  const [msgPresidentes, setMsgPresidentes] = useState<Record<number, string>>({});
+
   useEffect(() => {
     if (!user || (user.role !== "master" && user.role !== "presidente")) navigate("/");
   }, []);
@@ -280,8 +292,73 @@ const Admin = () => {
   const fetchCampeonatos = async () => { const res = await fetch(`${API_BASE_URL}/api/campeonatos`); if (res.ok) setCampeonatos(await res.json()); };
   const fetchEstadios = async () => { setLoadingEstadios(true); try { const res = await fetch(`${API_BASE_URL}/api/estadios`); if (res.ok) setEstadios(await res.json()); } finally { setLoadingEstadios(false); } };
   const fetchContatos = async () => { setLoadingContatos(true); try { const res = await authFetch(`${API_BASE_URL}/api/contatos`); if (res.ok) setContatos(await res.json()); } finally { setLoadingContatos(false); } };
+  const fetchMeusCampeonatos = async () => {
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/meus-campeonatos-admin`);
+      if (res.ok) setMeusCampeonatos(await res.json());
+    } catch { /* silencioso: se falhar, a lista de campeonatos visíveis fica vazia pra não-master */ }
+  };
 
-  useEffect(() => { fetchUsuarios(); fetchMaterias(); fetchJogos(); fetchTimes(); fetchCampeonatos(); fetchEstadios(); fetchContatos(); }, []);
+  useEffect(() => { fetchUsuarios(); fetchMaterias(); fetchJogos(); fetchTimes(); fetchCampeonatos(); fetchEstadios(); fetchContatos(); fetchMeusCampeonatos(); }, []);
+
+  // Campeonatos que o usuário logado pode de fato administrar: master vê todos,
+  // qualquer outro usuário só vê os que aparecem em /api/meus-campeonatos-admin
+  // (hoje, na prática, só quem tem role 'presidente' escopado por campeonato).
+  const campeonatosPermitidos = isMaster
+    ? campeonatos
+    : campeonatos.filter((c) => meusCampeonatos.some((mc) => mc.campeonato_id === c.campeonato_id));
+
+  const fetchPresidentesDoCamp = async (campId: number) => {
+    setCarregandoPresidentes(campId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/campeonatos/${campId}/presidentes`);
+      if (res.ok) {
+        const data = await res.json();
+        setPresidentesPorCamp((prev) => ({ ...prev, [campId]: data }));
+      }
+    } finally { setCarregandoPresidentes(null); }
+  };
+
+  const alternarExpandirCamp = (campId: number) => {
+    if (campExpandido === campId) { setCampExpandido(null); return; }
+    setCampExpandido(campId);
+    if (!presidentesPorCamp[campId]) fetchPresidentesDoCamp(campId);
+  };
+
+  const atribuirPresidente = async (campId: number) => {
+    const usuarioId = novoPresidenteId[campId];
+    if (!usuarioId) return;
+    setAtribuindoPresidente(campId);
+    setMsgPresidentes((prev) => ({ ...prev, [campId]: "" }));
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/campeonatos/${campId}/presidentes`, {
+        method: "POST", body: JSON.stringify({ usuario_id: parseInt(usuarioId) }),
+      });
+      if (res.ok) {
+        setNovoPresidenteId((prev) => ({ ...prev, [campId]: "" }));
+        fetchPresidentesDoCamp(campId);
+      } else {
+        setMsgPresidentes((prev) => ({ ...prev, [campId]: "" }));
+        alert(await extrairMensagemErro(res, "Erro ao atribuir presidente."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao atribuir presidente.");
+    } finally { setAtribuindoPresidente(null); }
+  };
+
+  const removerPresidente = async (campId: number, usuarioId: number) => {
+    if (!confirm("Remover o acesso de presidente deste usuário neste campeonato?")) return;
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/campeonatos/${campId}/presidentes/${usuarioId}`, { method: "DELETE" });
+      if (res.ok) {
+        setPresidentesPorCamp((prev) => ({ ...prev, [campId]: (prev[campId] ?? []).filter((p) => p.usuario_id !== usuarioId) }));
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao remover presidente."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao remover presidente.");
+    }
+  };
 
   const mudarRole = async (userId: number, novoRole: string) => {
     setSalvando(userId);
@@ -660,15 +737,16 @@ const Admin = () => {
   };
 
   const abas: { key: Aba; label: string; icon: any }[] = [
-    ...(user?.role === "master" ? [{ key: "usuarios" as Aba, label: "Usuários", icon: Users }] : []),
+    ...(isMaster ? [{ key: "usuarios" as Aba, label: "Usuários", icon: Users }] : []),
+    ...(isMaster ? [{ key: "presidentes" as Aba, label: "Presidentes", icon: ShieldCheck }] : []),
     { key: "campeonatos", label: "Campeonatos", icon: Trophy },
-    { key: "novo_campeonato", label: "Novo Camp.", icon: PlusCircle },
+    ...(isMaster ? [{ key: "novo_campeonato" as Aba, label: "Novo Camp.", icon: PlusCircle }] : []),
     { key: "jogos", label: "Jogos", icon: Swords },
     { key: "novo_jogo", label: "Novo Jogo", icon: Calendar },
     { key: "times", label: "Times", icon: Shirt },
-    { key: "novo_time", label: "Novo Time", icon: PlusCircle },
+    ...(isMaster ? [{ key: "novo_time" as Aba, label: "Novo Time", icon: PlusCircle }] : []),
     { key: "estadios", label: "Estádios", icon: MapPin },
-    { key: "novo_estadio", label: "Novo Estádio", icon: PlusCircle },
+    ...(isMaster ? [{ key: "novo_estadio" as Aba, label: "Novo Estádio", icon: PlusCircle }] : []),
     { key: "contatos", label: "Contatos", icon: Phone },
     { key: "novo_contato", label: "Novo Contato", icon: PlusCircle },
     { key: "materias", label: "Matérias", icon: Newspaper },
@@ -685,14 +763,16 @@ const Admin = () => {
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4"><ShieldCheck className="w-8 h-8 text-primary" /></div>
           <h1 className="text-4xl font-bold mb-2">Painel Administrativo</h1>
-          <p className="text-muted-foreground">Gerencie usuários, campeonatos, jogos e conteúdo</p>
+          <p className="text-muted-foreground">
+            {isMaster ? "Gerencie usuários, campeonatos, jogos e conteúdo" : "Gerencie o(s) campeonato(s) sob sua responsabilidade"}
+          </p>
         </div>
 
         {/* Resumo */}
         <div className="flex justify-center gap-4 mb-10 flex-wrap">
           {[
-            ...(user?.role === "master" ? [{ icon: Users, count: usuarios.length, label: "Usuários" }] : []),
-            { icon: Trophy, count: campeonatos.length, label: "Campeonatos" },
+            ...(isMaster ? [{ icon: Users, count: usuarios.length, label: "Usuários" }] : []),
+            { icon: Trophy, count: campeonatosPermitidos.length, label: "Campeonatos" },
             { icon: Swords, count: jogos.length, label: "Jogos" },
             { icon: Shirt, count: times.length, label: "Times" },
             { icon: MapPin, count: estadios.length, label: "Estádios" },
@@ -747,16 +827,91 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ABA: PRESIDENTES (master-only) — atribuir/remover presidente escopado por campeonato */}
+        {aba === "presidentes" && isMaster && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="font-bold text-lg">Presidentes por Campeonato</h2>
+              <p className="text-xs text-muted-foreground">Cada presidente só administra o campeonato atribuído aqui.</p>
+            </div>
+            {campeonatos.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum campeonato cadastrado.</div> : (
+              <div className="divide-y">
+                {campeonatos.map((c) => {
+                  const expandido = campExpandido === c.campeonato_id;
+                  const presidentesLista = presidentesPorCamp[c.campeonato_id] ?? [];
+                  const candidatos = usuarios.filter((u) => !presidentesLista.some((p) => p.usuario_id === u.id));
+                  return (
+                    <div key={c.campeonato_id} className="px-6 py-4">
+                      <button onClick={() => alternarExpandirCamp(c.campeonato_id)} className="w-full flex items-center justify-between text-left">
+                        <div>
+                          <p className="font-medium text-sm">{c.nome}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {presidentesPorCamp[c.campeonato_id]
+                              ? `${presidentesLista.length} presidente(s) atribuído(s)`
+                              : "Clique pra ver os presidentes"}
+                          </p>
+                        </div>
+                        <span className="text-muted-foreground text-xs">{expandido ? "▲" : "▾"}</span>
+                      </button>
+                      {expandido && (
+                        <div className="mt-3 pl-1 space-y-3">
+                          {carregandoPresidentes === c.campeonato_id ? (
+                            <p className="text-sm text-muted-foreground">Carregando...</p>
+                          ) : presidentesLista.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Ninguém atribuído ainda.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {presidentesLista.map((p) => (
+                                <div key={p.usuario_id} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
+                                  <span className="text-sm font-medium">{p.username}</span>
+                                  <button onClick={() => removerPresidente(c.campeonato_id, p.usuario_id)} className="text-destructive hover:opacity-70" title="Remover presidente">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <SeletorBusca
+                                opcoes={candidatos.map((u) => ({ id: String(u.id), label: `${u.username} (${u.role})` }))}
+                                valor={novoPresidenteId[c.campeonato_id] ?? ""}
+                                onSelecionar={(idSel) => setNovoPresidenteId((prev) => ({ ...prev, [c.campeonato_id]: idSel }))}
+                                placeholder="Buscar usuário pra atribuir..."
+                              />
+                            </div>
+                            <button
+                              onClick={() => atribuirPresidente(c.campeonato_id)}
+                              disabled={!novoPresidenteId[c.campeonato_id] || atribuindoPresidente === c.campeonato_id}
+                              className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {atribuindoPresidente === c.campeonato_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusCircle className="w-3 h-3" />} Atribuir
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ABA: CAMPEONATOS */}
         {aba === "campeonatos" && (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="font-bold text-lg">Campeonatos</h2>
-              <button onClick={() => setAba("novo_campeonato")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>
+              {isMaster && <button onClick={() => setAba("novo_campeonato")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>}
             </div>
-            {campeonatos.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum campeonato cadastrado.</div> : (
+            {campeonatosPermitidos.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                {isMaster ? "Nenhum campeonato cadastrado." : "Você ainda não é presidente de nenhum campeonato. Fale com a equipe master."}
+              </div>
+            ) : (
               <div className="divide-y">
-                {campeonatos.map((c) => (
+                {campeonatosPermitidos.map((c) => (
                   <div key={c.campeonato_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
                     {campEditando === c.campeonato_id ? (
                       <div className="flex items-center gap-2 flex-wrap">
@@ -798,8 +953,8 @@ const Admin = () => {
           </div>
         )}
 
-        {/* ABA: NOVO CAMPEONATO */}
-        {aba === "novo_campeonato" && (
+        {/* ABA: NOVO CAMPEONATO (master-only: não existe camp_id pra escopar antes de criar) */}
+        {aba === "novo_campeonato" && isMaster && (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Trophy className="w-5 h-5 text-primary" /> Criar Novo Campeonato</h2>
             <div className="space-y-4">
@@ -857,7 +1012,9 @@ const Admin = () => {
                   <button onClick={() => reagendando === j.jogo_id ? setReagendando(null) : abrirReagendamento(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Reagendar jogo">
                     {reagendando === j.jogo_id ? <X className="w-4 h-4" /> : <CalendarClock className="w-4 h-4" />}
                   </button>
-                  <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
+                  {isMaster && (
+                    <button onClick={() => deletarJogo(j.jogo_id)} className="text-destructive hover:opacity-70" title="Remover jogo (apenas master)"><Trash2 className="w-4 h-4" /></button>
+                  )}
                 </div>
               </div>
               {j.status !== "Finalizado" && editando !== j.jogo_id && (
@@ -963,8 +1120,9 @@ const Admin = () => {
               <div><label className="text-sm font-medium mb-1.5 block">Data e Hora *</label><input type="datetime-local" value={novoJogo.data_hora} onChange={(e) => setNovoJogo((p) => ({ ...p, data_hora: e.target.value }))} className={inputClass} /></div>
               <div><label className="text-sm font-medium mb-1.5 block">Campeonato</label>
                 <select value={novoJogo.campeonato_id} onChange={(e) => setNovoJogo((p) => ({ ...p, campeonato_id: e.target.value }))} className={inputClass}>
-                  <option value="">Amistoso</option>{campeonatos.map((c) => <option key={c.campeonato_id} value={c.campeonato_id}>{c.nome}</option>)}
+                  <option value="">{isMaster ? "Amistoso" : "Selecione o campeonato"}</option>{campeonatosPermitidos.map((c) => <option key={c.campeonato_id} value={c.campeonato_id}>{c.nome}</option>)}
                 </select>
+                {!isMaster && <p className="text-xs text-muted-foreground mt-1">Só aparecem os campeonatos sob sua responsabilidade.</p>}
               </div>
               <div><label className="text-sm font-medium mb-1.5 block">Estádio</label>
                 <select value={novoJogo.estadio_id} onChange={(e) => setNovoJogo((p) => ({ ...p, estadio_id: e.target.value }))} className={inputClass}>
@@ -986,7 +1144,7 @@ const Admin = () => {
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="font-bold text-lg">Times</h2>
               <div className="flex items-center gap-2">
-                <button onClick={() => setAba("novo_time")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>
+                {isMaster && <button onClick={() => setAba("novo_time")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>}
                 <button onClick={fetchTimes} className="text-muted-foreground hover:text-foreground ml-2"><RefreshCw className="w-4 h-4" /></button>
               </div>
             </div>
@@ -1025,9 +1183,11 @@ const Admin = () => {
                             <p className="text-xs text-muted-foreground mt-0.5">{t.apelido && `"${t.apelido}" · `}{t.regiao}</p>
                           </div>
                         </div>
-                        <button onClick={() => abrirEdicaoTime(t)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar time">
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                        {isMaster && (
+                          <button onClick={() => abrirEdicaoTime(t)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar time (apenas master)">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1037,8 +1197,8 @@ const Admin = () => {
           </div>
         )}
 
-        {/* ABA: NOVO TIME */}
-        {aba === "novo_time" && (
+        {/* ABA: NOVO TIME (master-only: times agora são recurso global) */}
+        {aba === "novo_time" && isMaster && (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><Shirt className="w-5 h-5 text-primary" /> Cadastrar Novo Time</h2>
             <div className="space-y-4">
@@ -1060,7 +1220,7 @@ const Admin = () => {
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="font-bold text-lg">Estádios</h2>
-              <button onClick={() => setAba("novo_estadio")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>
+              {isMaster && <button onClick={() => setAba("novo_estadio")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>}
             </div>
             {loadingEstadios ? <div className="p-8 text-center text-muted-foreground">Carregando...</div> :
               estadios.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum estádio cadastrado.</div> : (
@@ -1091,9 +1251,11 @@ const Admin = () => {
                           <p className="font-medium text-sm">{e.nome_oficial}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{e.apelido && `"${e.apelido}" · `}{e.bairro}{e.bairro && ", "}{e.cidade} - {e.estado}</p>
                         </div>
-                        <button onClick={() => abrirEdicaoEstadio(e)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar estádio">
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                        {isMaster && (
+                          <button onClick={() => abrirEdicaoEstadio(e)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar estádio (apenas master)">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1103,8 +1265,8 @@ const Admin = () => {
           </div>
         )}
 
-        {/* ABA: NOVO ESTÁDIO */}
-        {aba === "novo_estadio" && (
+        {/* ABA: NOVO ESTÁDIO (master-only: estádios agora são recurso global) */}
+        {aba === "novo_estadio" && isMaster && (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
             <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><MapPin className="w-5 h-5 text-primary" /> Cadastrar Novo Estádio</h2>
             <div className="space-y-4">
@@ -1156,7 +1318,7 @@ const Admin = () => {
                         <textarea value={contatoEdit.observacoes} onChange={(ev) => setContatoEdit(p => ({ ...p, observacoes: ev.target.value }))} placeholder="Observações" rows={2} className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
                         <select value={contatoEdit.campeonato_id} onChange={(ev) => setContatoEdit(p => ({ ...p, campeonato_id: ev.target.value }))} className="w-full px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
                           <option value="">Selecione o campeonato</option>
-                          {campeonatos.map((camp) => <option key={camp.campeonato_id} value={camp.campeonato_id}>{camp.nome}</option>)}
+                          {campeonatosPermitidos.map((camp) => <option key={camp.campeonato_id} value={camp.campeonato_id}>{camp.nome}</option>)}
                         </select>
                         <div className="flex gap-2">
                           <button onClick={salvarEdicaoContato} disabled={salvandoContato} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
@@ -1177,7 +1339,9 @@ const Admin = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <button onClick={() => abrirEdicaoContato(c)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar contato"><Edit3 className="w-4 h-4" /></button>
-                          <button onClick={() => deletarContato(c.contato_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
+                          {isMaster && (
+                            <button onClick={() => deletarContato(c.contato_id)} className="text-destructive hover:opacity-70" title="Remover contato (apenas master)"><Trash2 className="w-4 h-4" /></button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1199,7 +1363,7 @@ const Admin = () => {
               <div><label className="text-sm font-medium mb-1.5 block">Campeonato *</label>
                 <select value={novoContato.campeonato_id} onChange={(e) => setNovoContato(p => ({ ...p, campeonato_id: e.target.value }))} className={inputClass}>
                   <option value="">Selecione o campeonato</option>
-                  {campeonatos.map((c) => <option key={c.campeonato_id} value={c.campeonato_id}>{c.nome}</option>)}
+                  {campeonatosPermitidos.map((c) => <option key={c.campeonato_id} value={c.campeonato_id}>{c.nome}</option>)}
                 </select>
               </div>
               <div><label className="text-sm font-medium mb-1.5 block">Observações</label><textarea value={novoContato.observacoes} onChange={(e) => setNovoContato(p => ({ ...p, observacoes: e.target.value }))} placeholder="Notas sobre o contato..." rows={4} className={`${inputClass} resize-none`} /></div>
@@ -1230,7 +1394,9 @@ const Admin = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => abrirEdicaoMateria(m)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar matéria"><Edit3 className="w-4 h-4" /></button>
-                      <button onClick={() => deletarMateria(m.materia_id)} className="text-destructive hover:opacity-70"><Trash2 className="w-4 h-4" /></button>
+                      {isMaster && (
+                        <button onClick={() => deletarMateria(m.materia_id)} className="text-destructive hover:opacity-70" title="Remover matéria (apenas master)"><Trash2 className="w-4 h-4" /></button>
+                      )}
                     </div>
                   </div>
                 ))}
