@@ -6,7 +6,7 @@ import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
   Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone,
-  ImagePlus, Loader2
+  ImagePlus, Loader2, KeyRound
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
@@ -404,6 +404,23 @@ const Admin = () => {
       }
     } catch (err) {
       alert("Erro de conexão ao atualizar o papel do usuário.");
+    } finally { setSalvando(null); }
+  };
+
+  const resetarSenha = async (userId: number, username: string) => {
+    const novaSenha = window.prompt(`Nova senha pra '${username}' (mínimo 6 caracteres):`, "");
+    if (novaSenha === null) return; // cancelou
+    if (novaSenha.length < 6) { alert("A senha precisa ter pelo menos 6 caracteres."); return; }
+    setSalvando(userId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/usuarios/${userId}/resetar-senha`, { method: "PUT", body: JSON.stringify({ nova_senha: novaSenha }) });
+      if (res.ok) {
+        alert(`✅ Senha de '${username}' resetada!`);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao resetar senha."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao resetar senha.");
     } finally { setSalvando(null); }
   };
 
@@ -858,6 +875,9 @@ const Admin = () => {
                         <select defaultValue={u.role} onChange={(e) => mudarRole(u.id, e.target.value)} disabled={salvando === u.id} className="text-sm border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
                           {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                         </select>
+                        <button onClick={() => resetarSenha(u.id, u.username)} disabled={salvando === u.id} className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-50" title="Resetar senha">
+                          <KeyRound className="w-4 h-4" />
+                        </button>
                         {salvando === u.id && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
                       </div>
                     )}
