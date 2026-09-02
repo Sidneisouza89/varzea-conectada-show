@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, Search, User, X, ShieldCheck } from "lucide-react";
+import { Menu, Search, User, X, ShieldCheck, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "./Logo";
 import LoginModal from "./LoginModal";
@@ -15,6 +15,10 @@ const Header = () => {
   const user = storedUser ? JSON.parse(storedUser) : null;
   const isAdmin = user?.role === "master" || user?.role === "presidente";
   const podeVerOlheiro = user && ROLES_OLHEIRO.includes(user.role);
+  // Painel do Delegado: mesmo público do Admin (master/presidente global),
+  // mais quem tem o role "delegado" puro (que não acessa o Admin, mas
+  // precisa registrar gol/cartão em campo).
+  const podeVerDelegado = isAdmin || user?.role === "delegado";
 
   const handleLogout = () => {
     localStorage.removeItem("varzeando_token");
@@ -52,6 +56,18 @@ const Header = () => {
                     {link.label}
                   </Link>
                 ))}
+
+                {/* Painel do Delegado — master/presidente global/delegado */}
+                {podeVerDelegado && (
+                  <Link
+                    to="/delegado"
+                    className="flex items-center gap-1.5 text-sm font-medium text-green-600 transition-colors hover:text-green-700"
+                    title="Painel do Delegado"
+                  >
+                    <Radio className="h-4 w-4" />
+                    Delegado
+                  </Link>
+                )}
 
                 {/* Painel ADM — só master/presidente */}
                 {isAdmin && (
@@ -116,6 +132,12 @@ const Header = () => {
                 {link.label}
               </Link>
             ))}
+            {podeVerDelegado && (
+              <Link to="/delegado" className="flex items-center gap-2 text-sm font-medium text-green-600 py-2" onClick={() => setMobileOpen(false)}>
+                <Radio className="h-4 w-4" />
+                Painel do Delegado
+              </Link>
+            )}
             {isAdmin && (
               <Link to="/admin" className="flex items-center gap-2 text-sm font-medium text-primary py-2" onClick={() => setMobileOpen(false)}>
                 <ShieldCheck className="h-4 w-4" />
