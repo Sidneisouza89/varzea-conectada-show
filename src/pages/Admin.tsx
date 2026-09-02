@@ -6,7 +6,7 @@ import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
   Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone,
-  ImagePlus, Loader2, KeyRound
+  ImagePlus, Loader2, KeyRound, Radio
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
@@ -821,9 +821,12 @@ const Admin = () => {
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4"><ShieldCheck className="w-8 h-8 text-primary" /></div>
           <h1 className="text-4xl font-bold mb-2">Painel Administrativo</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             {isMaster ? "Gerencie usuários, campeonatos, jogos e conteúdo" : "Gerencie o(s) campeonato(s) sob sua responsabilidade"}
           </p>
+          <button onClick={() => navigate("/delegado")} className="inline-flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity">
+            <Radio className="w-4 h-4" /> Painel do Delegado (registrar jogo ao vivo)
+          </button>
         </div>
 
         {/* Resumo */}
