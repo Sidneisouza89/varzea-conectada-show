@@ -5,8 +5,16 @@ import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
 import {
   ArrowLeft, Trophy, MapPin, Calendar, Clock,
-  CheckCircle2, Swords, Target, Share2, Check
+  CheckCircle2, Swords, Target, Share2, Check, Square
 } from "lucide-react";
+
+interface EventoSumula {
+  minuto: string;
+  tempo?: number | null;
+  jogador: string;
+  time: string;
+  tipo: string;
+}
 
 interface Sumula {
   partida: {
@@ -27,21 +35,24 @@ interface Sumula {
     visitante: string;
     visitante_logo?: string | null;
   };
-  eventos: {
-    minuto: string;
-    jogador: string;
-    time: string;
-    tipo: string;
-  }[];
+  eventos: EventoSumula[];
+  cartoes: EventoSumula[];
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   "Finalizado":             { label: "Encerrado",             color: "bg-green-100 text-green-700" },
-  "Agendado":               { label: "Próximo",               color: "bg-muted text-muted-foreground" },
-  "Em andamento":           { label: "Ao Vivo",               color: "bg-red-100 text-red-700" },
-  "Aguardando confirmação": { label: "Aguard. confirmação",   color: "bg-blue-100 text-blue-700" },
-  "Em disputa":             { label: "Em disputa",            color: "bg-orange-100 text-orange-700" },
+  "Agendado":                { label: "Próximo",               color: "bg-muted text-muted-foreground" },
+  "1º Tempo":                { label: "Ao Vivo · 1º Tempo",    color: "bg-red-100 text-red-700" },
+  "Intervalo":               { label: "Intervalo",             color: "bg-yellow-100 text-yellow-700" },
+  "2º Tempo":                { label: "Ao Vivo · 2º Tempo",    color: "bg-red-100 text-red-700" },
+  "Em andamento":            { label: "Ao Vivo",               color: "bg-red-100 text-red-700" },
+  "Aguardando confirmação":  { label: "Aguard. confirmação",   color: "bg-blue-100 text-blue-700" },
+  "Em disputa":              { label: "Em disputa",            color: "bg-orange-100 text-orange-700" },
 };
+
+// Status em que o jogo já está rolando (ou já rolou) e faz sentido mostrar
+// o placar real em vez de "VS" — cobre os três estados ao vivo novos.
+const STATUS_COM_PLACAR = ["Finalizado", "1º Tempo", "Intervalo", "2º Tempo", "Em andamento"];
 
 const JogoDetalhe = () => {
   const { id } = useParams<{ id: string }>();
@@ -86,7 +97,7 @@ const JogoDetalhe = () => {
   const handleCompartilhar = async () => {
     if (!sumula) return;
     const url = window.location.href;
-    const placarTexto = sumula.partida.status === "Finalizado" ? `${gols_mandante} x ${gols_visitante}` : "VS";
+    const placarTexto = STATUS_COM_PLACAR.includes(sumula.partida.status) ? `${gols_mandante} x ${gols_visitante}` : "VS";
     const titulo = `${sumula.confronto.mandante} ${placarTexto} ${sumula.confronto.visitante}`;
     const texto = `${titulo} — ${sumula.partida.campeonato}`;
     if (navigator.share) {
@@ -161,7 +172,7 @@ const JogoDetalhe = () => {
                 </div>
 
                 <div className="text-center px-4">
-                  {sumula.partida.status === "Finalizado" || sumula.partida.status === "Em andamento" ? (
+                  {STATUS_COM_PLACAR.includes(sumula.partida.status) ? (
                     <div className="bg-muted rounded-2xl px-6 py-3">
                       <p className="text-4xl font-bold tabular-nums">
                         {gols_mandante} <span className="text-muted-foreground text-2xl">x</span> {gols_visitante}
@@ -243,6 +254,28 @@ const JogoDetalhe = () => {
                       {ev.tipo !== "Normal" && (
                         <span className="ml-auto text-xs text-muted-foreground">{ev.tipo}</span>
                       )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Cartões */}
+            <div className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm p-6">
+              <h2 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                <Square className="w-4 h-4" /> Cartões
+              </h2>
+              {sumula.cartoes.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum cartão registrado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {sumula.cartoes.map((ev, idx) => (
+                    <div key={idx} className="flex items-center gap-3 text-sm py-2 border-b last:border-0">
+                      <span className="w-10 text-center text-xs font-bold bg-primary/10 text-primary rounded-lg py-1">{ev.minuto}'</span>
+                      <Square className={`w-3.5 h-3.5 flex-shrink-0 ${ev.tipo === "vermelho" ? "text-red-600" : "text-yellow-500"}`} />
+                      <span className="font-medium">{ev.jogador}</span>
+                      <span className="text-muted-foreground text-xs">({ev.time})</span>
+                      <span className="ml-auto text-xs text-muted-foreground capitalize">{ev.tipo}</span>
                     </div>
                   ))}
                 </div>
