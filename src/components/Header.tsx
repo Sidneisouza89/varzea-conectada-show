@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, Search, User, X, ShieldCheck, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { API_BASE_URL, authFetch } from "@/lib/api";
 import Logo from "./Logo";
 import LoginModal from "./LoginModal";
 
@@ -15,10 +16,31 @@ const Header = () => {
   const user = storedUser ? JSON.parse(storedUser) : null;
   const isAdmin = user?.role === "master" || user?.role === "presidente";
   const podeVerOlheiro = user && ROLES_OLHEIRO.includes(user.role);
-  // Painel do Delegado: mesmo público do Admin (master/presidente global),
-  // mais quem tem o role "delegado" puro (que não acessa o Admin, mas
-  // precisa registrar gol/cartão em campo).
-  const podeVerDelegado = isAdmin || user?.role === "delegado";
+
+  // Presidente escopado por campeonato (CampeonatoUsuarioRole) tem o role
+  // GLOBAL "torcedor" na maioria dos casos — isAdmin sozinho não pega esse
+  // caso. Checa via API se o usuário tem pelo menos 1 campeonato atribuído,
+  // pra também mostrar os links Admin/Delegado pra ele.
+  const [temAcessoEscopado, setTemAcessoEscopado] = useState(false);
+  useEffect(() => {
+    if (!user || isAdmin) return; // master/presidente global já cobertos, não precisa checar
+    const verificar = async () => {
+      try {
+        const res = await authFetch(`${API_BASE_URL}/api/meus-campeonatos-admin`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) setTemAcessoEscopado(true);
+        }
+      } catch { /* sem acesso escopado, segue sem mostrar os links */ }
+    };
+    verificar();
+  }, []);
+
+  const podeVerAdmin = isAdmin || temAcessoEscopado;
+  // Painel do Delegado: mesmo público do Admin (master/presidente global ou
+  // escopado), mais quem tem o role "delegado" puro (que não acessa o
+  // Admin, mas precisa registrar gol/cartão em campo).
+  const podeVerDelegado = podeVerAdmin || user?.role === "delegado";
 
   const handleLogout = () => {
     localStorage.removeItem("varzeando_token");
@@ -70,7 +92,7 @@ const Header = () => {
                 )}
 
                 {/* Painel ADM — só master/presidente */}
-                {isAdmin && (
+                {podeVerAdmin && (
                   <Link
                     to="/admin"
                     className="flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80"
@@ -138,7 +160,7 @@ const Header = () => {
                 Painel do Delegado
               </Link>
             )}
-            {isAdmin && (
+            {podeVerAdmin && (
               <Link to="/admin" className="flex items-center gap-2 text-sm font-medium text-primary py-2" onClick={() => setMobileOpen(false)}>
                 <ShieldCheck className="h-4 w-4" />
                 Painel Admin
