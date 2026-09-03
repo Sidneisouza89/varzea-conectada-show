@@ -1597,8 +1597,8 @@ const Admin = () => {
 
         {/* ABA: JOGADORES (master-only) — escolhe um time, vê e edita o elenco */}
         {aba === "jogadores" && isMaster && (
-          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
-            <div className="px-6 pt-4 pb-6 border-b space-y-3 relative z-10">
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm">
+            <div className="px-6 pt-4 pb-6 border-b space-y-3 relative z-10 rounded-t-xl bg-card/80">
               <h2 className="font-bold text-lg">Jogadores</h2>
               <SeletorBusca
                 opcoes={times.map((t) => ({ id: String(t.id), label: t.nome_oficial }))}
@@ -1620,7 +1620,7 @@ const Admin = () => {
             ) : jogadoresDoTime.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">Esse time ainda não tem jogadores cadastrados.</div>
             ) : (
-              <div className="divide-y max-h-[32rem] overflow-y-auto">
+              <div className="divide-y max-h-[32rem] overflow-y-auto rounded-b-xl">
                 {jogadoresDoTime.map((j) => (
                   <div key={j.jogador_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
                     {jogadorEditando?.jogador_id === j.jogador_id ? (
