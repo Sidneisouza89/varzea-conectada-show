@@ -241,6 +241,14 @@ const Admin = () => {
   const [jogadoresDoTime, setJogadoresDoTime] = useState<Jogador[]>([]);
   const [carregandoJogadoresTime, setCarregandoJogadoresTime] = useState(false);
 
+  // Número de camisa — depende de time + campeonato selecionados
+  const [campeonatoSelecionadoJogadores, setCampeonatoSelecionadoJogadores] = useState("");
+  const [numerosPorJogador, setNumerosPorJogador] = useState<Record<number, number | null>>({});
+  const [carregandoNumeros, setCarregandoNumeros] = useState(false);
+  const [editandoNumeroJogadorId, setEditandoNumeroJogadorId] = useState<number | null>(null);
+  const [numeroInputValor, setNumeroInputValor] = useState("");
+  const [salvandoNumero, setSalvandoNumero] = useState<number | null>(null);
+
   // Novo jogador
   const [novoJogadorForm, setNovoJogadorForm] = useState({ nome: "", time_id: "", posicao: "", cpf: "", data_nascimento: "", foto_url: "" });
   const [criandoJogador, setCriandoJogador] = useState(false);
@@ -672,6 +680,71 @@ const Admin = () => {
   const selecionarTimeJogadores = (timeId: string) => {
     setTimeSelecionadoJogadores(timeId);
     fetchJogadoresDoTime(timeId);
+    setNumerosPorJogador({});
+    if (campeonatoSelecionadoJogadores) fetchNumerosCamisa(timeId, campeonatoSelecionadoJogadores);
+  };
+
+  const fetchNumerosCamisa = async (timeId: string, campeonatoId: string) => {
+    if (!timeId || !campeonatoId) { setNumerosPorJogador({}); return; }
+    setCarregandoNumeros(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/times/${timeId}/elenco-publico?campeonato_id=${campeonatoId}`);
+      if (res.ok) {
+        const data: { jogador_id: number; numero_camisa: number | null }[] = await res.json();
+        const mapa: Record<number, number | null> = {};
+        data.forEach((j) => { mapa[j.jogador_id] = j.numero_camisa; });
+        setNumerosPorJogador(mapa);
+      }
+    } finally { setCarregandoNumeros(false); }
+  };
+
+  const selecionarCampeonatoJogadores = (campId: string) => {
+    setCampeonatoSelecionadoJogadores(campId);
+    if (timeSelecionadoJogadores) fetchNumerosCamisa(timeSelecionadoJogadores, campId);
+  };
+
+  const abrirEdicaoNumero = (jogadorId: number) => {
+    setEditandoNumeroJogadorId(jogadorId);
+    setNumeroInputValor(numerosPorJogador[jogadorId] != null ? String(numerosPorJogador[jogadorId]) : "");
+  };
+
+  const salvarNumeroCamisa = async (jogadorId: number) => {
+    if (!timeSelecionadoJogadores || !campeonatoSelecionadoJogadores || !numeroInputValor) return;
+    setSalvandoNumero(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/camisa`, {
+        method: "POST",
+        body: JSON.stringify({
+          time_id: parseInt(timeSelecionadoJogadores),
+          campeonato_id: parseInt(campeonatoSelecionadoJogadores),
+          numero_camisa: parseInt(numeroInputValor),
+        }),
+      });
+      if (res.ok) {
+        setEditandoNumeroJogadorId(null);
+        fetchNumerosCamisa(timeSelecionadoJogadores, campeonatoSelecionadoJogadores);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao salvar número de camisa."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao salvar número de camisa.");
+    } finally { setSalvandoNumero(null); }
+  };
+
+  const removerNumeroCamisa = async (jogadorId: number) => {
+    if (!timeSelecionadoJogadores || !campeonatoSelecionadoJogadores) return;
+    if (!confirm("Remover o número de camisa desse jogador nesse campeonato?")) return;
+    setSalvandoNumero(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/camisa?time_id=${timeSelecionadoJogadores}&campeonato_id=${campeonatoSelecionadoJogadores}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchNumerosCamisa(timeSelecionadoJogadores, campeonatoSelecionadoJogadores);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao remover número de camisa."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao remover número de camisa.");
+    } finally { setSalvandoNumero(null); }
   };
 
   const handleUploadFotoJogadorNovo = async (arquivo: File) => {
@@ -1525,13 +1598,19 @@ const Admin = () => {
         {/* ABA: JOGADORES (master-only) — escolhe um time, vê e edita o elenco */}
         {aba === "jogadores" && isMaster && (
           <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b">
-              <h2 className="font-bold text-lg mb-3">Jogadores</h2>
+            <div className="px-6 py-4 border-b space-y-3">
+              <h2 className="font-bold text-lg">Jogadores</h2>
               <SeletorBusca
                 opcoes={times.map((t) => ({ id: String(t.id), label: t.nome_oficial }))}
                 valor={timeSelecionadoJogadores}
                 onSelecionar={selecionarTimeJogadores}
                 placeholder="Escolha um time pra ver o elenco..."
+              />
+              <SeletorBusca
+                opcoes={campeonatos.map((c) => ({ id: String(c.campeonato_id), label: c.nome }))}
+                valor={campeonatoSelecionadoJogadores}
+                onSelecionar={selecionarCampeonatoJogadores}
+                placeholder="Escolha um campeonato pra ver/editar números de camisa (opcional)..."
               />
             </div>
             {!timeSelecionadoJogadores ? (
@@ -1566,19 +1645,44 @@ const Admin = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm overflow-hidden flex-shrink-0">
                             {j.foto_url ? <img src={j.foto_url} alt={j.nome} className="w-full h-full object-cover" /> : j.nome[0]}
                           </div>
-                          <div>
-                            <p className="font-medium text-sm">{j.nome}</p>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{j.nome}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{j.posicao || "Posição não informada"}</p>
                           </div>
                         </div>
-                        <button onClick={() => abrirEdicaoJogador(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar jogador">
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {campeonatoSelecionadoJogadores && (
+                            editandoNumeroJogadorId === j.jogador_id ? (
+                              <div className="flex items-center gap-1">
+                                <input type="number" min="0" max="999" autoFocus value={numeroInputValor} onChange={(e) => setNumeroInputValor(e.target.value)}
+                                  className="w-14 text-center border rounded-lg px-1 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                                <button onClick={() => salvarNumeroCamisa(j.jogador_id)} disabled={!numeroInputValor || salvandoNumero === j.jogador_id} className="text-primary hover:opacity-70 disabled:opacity-50" title="Salvar número">
+                                  {salvandoNumero === j.jogador_id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                </button>
+                                <button onClick={() => setEditandoNumeroJogadorId(null)} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="w-3.5 h-3.5" /></button>
+                                {numerosPorJogador[j.jogador_id] != null && (
+                                  <button onClick={() => { removerNumeroCamisa(j.jogador_id); setEditandoNumeroJogadorId(null); }} className="text-destructive hover:opacity-70" title="Remover número">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <button onClick={() => abrirEdicaoNumero(j.jogador_id)} disabled={carregandoNumeros}
+                                className="flex items-center justify-center w-7 h-7 rounded-full border-2 border-primary/30 text-primary text-xs font-bold hover:bg-primary/10 transition-colors disabled:opacity-50"
+                                title="Editar número de camisa">
+                                {carregandoNumeros ? <Loader2 className="w-3 h-3 animate-spin" /> : (numerosPorJogador[j.jogador_id] ?? "+")}
+                              </button>
+                            )
+                          )}
+                          <button onClick={() => abrirEdicaoJogador(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar jogador">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
