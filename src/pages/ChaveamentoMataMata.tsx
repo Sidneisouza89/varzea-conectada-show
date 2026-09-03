@@ -82,7 +82,14 @@ const montarConfrontos = (jogosDaRodada: JogoAPI[]): Confronto[] => {
   });
 };
 
-const LABELS_DO_FIM = ["Final", "Semifinal", "Quartas de Final", "Oitavas de Final", "16-avos de Final", "32-avos de Final"];
+const LABEL_POR_QTD_CONFRONTOS: Record<number, string> = {
+  1: "Final",
+  2: "Semifinal",
+  4: "Quartas de Final",
+  8: "Oitavas de Final",
+  16: "16-avos de Final",
+  32: "32-avos de Final",
+};
 
 const ChaveamentoMataMata = () => {
   const { id } = useParams<{ id: string }>();
@@ -122,10 +129,7 @@ const ChaveamentoMataMata = () => {
     carregar();
   }, [id]);
 
-  const labelFase = (indexColuna: number, totalFases: number) => {
-    const indexFromEnd = totalFases - 1 - indexColuna;
-    return LABELS_DO_FIM[indexFromEnd] ?? `Fase ${indexColuna + 1}`;
-  };
+  const labelFase = (qtdConfrontos: number) => LABEL_POR_QTD_CONFRONTOS[qtdConfrontos] ?? `Fase (${qtdConfrontos} confronto${qtdConfrontos > 1 ? "s" : ""})`;
 
   return (
     <div className="min-h-screen bg-background"
@@ -162,10 +166,10 @@ const ChaveamentoMataMata = () => {
         {!loading && !erro && fases.length > 0 && (
           <div className="overflow-x-auto pb-6">
             <div className="flex gap-8 min-w-max px-2">
-              {fases.map((fase, colIdx) => (
+              {fases.map((fase) => (
                 <div key={fase.rodada} className="flex flex-col justify-around gap-6" style={{ minWidth: "260px" }}>
                   <h2 className="text-center font-bold text-sm uppercase tracking-wider text-primary mb-2 sticky top-0">
-                    {labelFase(colIdx, fases.length)}
+                    {labelFase(fase.confrontos.length)}
                   </h2>
                   <div className="flex flex-col justify-around gap-8 flex-1">
                     {fase.confrontos.map((c) => (
