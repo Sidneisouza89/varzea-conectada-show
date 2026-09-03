@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { API_BASE_URL } from "@/lib/api";
-import { ArrowLeft, MapPin, Shield } from "lucide-react";
+import { ArrowLeft, MapPin, Shield, Users } from "lucide-react";
 
 interface Time {
   id: number;
@@ -14,12 +14,27 @@ interface Time {
   logo_url?: string;
 }
 
+interface JogadorElenco {
+  jogador_id: number;
+  nome: string;
+  posicao?: string;
+  foto_url?: string | null;
+  numero_camisa?: number | null;
+}
+
+interface CampeonatoOpcao { campeonato_id: number; nome: string; ativo: boolean; }
+
 const TimeDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [time, setTime] = useState<Time | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const [elenco, setElenco] = useState<JogadorElenco[]>([]);
+  const [loadingElenco, setLoadingElenco] = useState(true);
+  const [campeonatos, setCampeonatos] = useState<CampeonatoOpcao[]>([]);
+  const [campeonatoSelecionado, setCampeonatoSelecionado] = useState("");
 
   useEffect(() => {
     const fetchTime = async () => {
@@ -38,6 +53,30 @@ const TimeDetalhe = () => {
     };
     fetchTime();
   }, [id]);
+
+  useEffect(() => {
+    const fetchCampeonatos = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/campeonatos`);
+        if (res.ok) setCampeonatos(await res.json());
+      } catch { /* segue sem lista de campeonatos, só sem o filtro */ }
+    };
+    fetchCampeonatos();
+  }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchElenco = async () => {
+      setLoadingElenco(true);
+      try {
+        const url = `${API_BASE_URL}/api/times/${id}/elenco-publico${campeonatoSelecionado ? `?campeonato_id=${campeonatoSelecionado}` : ""}`;
+        const res = await fetch(url);
+        if (res.ok) setElenco(await res.json());
+      } catch { /* elenco fica vazio, sem quebrar a página */ }
+      finally { setLoadingElenco(false); }
+    };
+    fetchElenco();
+  }, [id, campeonatoSelecionado]);
 
   return (
     <div
@@ -90,67 +129,124 @@ const TimeDetalhe = () => {
 
         {/* Conteúdo */}
         {!loading && time && (
-          <article className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-md overflow-hidden">
+          <div className="space-y-4">
+            <article className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-md overflow-hidden">
 
-            {/* Header do time */}
-            <div className="bg-gradient-to-r from-primary/10 to-secondary/10 px-8 py-10">
-              <div className="flex items-center gap-6">
-                {/* Brasão */}
-                {time.logo_url ? (
-                  <img
-                    src={time.logo_url}
-                    alt={`Brasão ${time.nome_oficial}`}
-                    className="w-28 h-28 object-contain drop-shadow-lg"
-                  />
-                ) : (
-                  <div className="w-28 h-28 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-4xl border-4 border-primary/20">
-                    {time.apelido ? time.apelido[0] : time.nome_oficial[0]}
-                  </div>
-                )}
-
-                {/* Info */}
-                <div>
-                  <h1 className="text-2xl font-bold leading-tight mb-1">{time.nome_oficial}</h1>
-                  {time.apelido && (
-                    <p className="text-muted-foreground italic mb-3">"{time.apelido}"</p>
-                  )}
-                  {time.regiao && (
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="w-4 h-4 text-primary" />
-                      <span>{time.regiao} — Diadema/SP</span>
+              {/* Header do time */}
+              <div className="bg-gradient-to-r from-primary/10 to-secondary/10 px-8 py-10">
+                <div className="flex items-center gap-6">
+                  {/* Brasão */}
+                  {time.logo_url ? (
+                    <img
+                      src={time.logo_url}
+                      alt={`Brasão ${time.nome_oficial}`}
+                      className="w-28 h-28 object-contain drop-shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-28 h-28 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-4xl border-4 border-primary/20">
+                      {time.apelido ? time.apelido[0] : time.nome_oficial[0]}
                     </div>
                   )}
+
+                  {/* Info */}
+                  <div>
+                    <h1 className="text-2xl font-bold leading-tight mb-1">{time.nome_oficial}</h1>
+                    {time.apelido && (
+                      <p className="text-muted-foreground italic mb-3">"{time.apelido}"</p>
+                    )}
+                    {time.regiao && (
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <span>{time.regiao} — Diadema/SP</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* História */}
-            <div className="px-8 py-8">
-              {time.historia ? (
-                <>
-                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-primary" />
-                    Nossa História
-                  </h2>
-                  <div className="border-t mb-6" />
-                  {time.historia.split("\n").map((paragrafo, i) =>
-                    paragrafo.trim() ? (
-                      <p key={i} className="text-foreground leading-relaxed mb-4">
-                        {paragrafo}
-                      </p>
-                    ) : <br key={i} />
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>A história deste time será contada em breve.</p>
-                  <p className="text-sm mt-1">Em construção pelo Varzeando. 🏟️</p>
-                </div>
-              )}
-            </div>
+              {/* História */}
+              <div className="px-8 py-8">
+                {time.historia ? (
+                  <>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-primary" />
+                      Nossa História
+                    </h2>
+                    <div className="border-t mb-6" />
+                    {time.historia.split("\n").map((paragrafo, i) =>
+                      paragrafo.trim() ? (
+                        <p key={i} className="text-foreground leading-relaxed mb-4">
+                          {paragrafo}
+                        </p>
+                      ) : <br key={i} />
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>A história deste time será contada em breve.</p>
+                    <p className="text-sm mt-1">Em construção pelo Varzeando. 🏟️</p>
+                  </div>
+                )}
+              </div>
 
-          </article>
+            </article>
+
+            {/* Elenco */}
+            <article className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-md overflow-hidden">
+              <div className="px-8 py-6 border-b flex items-center justify-between flex-wrap gap-3">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  Elenco
+                </h2>
+                {campeonatos.length > 0 && (
+                  <select
+                    value={campeonatoSelecionado}
+                    onChange={(e) => setCampeonatoSelecionado(e.target.value)}
+                    className="text-sm border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">Números por campeonato...</option>
+                    {campeonatos.map((c) => (
+                      <option key={c.campeonato_id} value={c.campeonato_id}>{c.nome}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="px-8 py-6">
+                {loadingElenco ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Carregando elenco...</p>
+                ) : elenco.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Elenco ainda não cadastrado.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {elenco.map((j) => (
+                      <div key={j.jogador_id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/40 transition-colors">
+                        <div className="relative flex-shrink-0">
+                          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm overflow-hidden">
+                            {j.foto_url ? (
+                              <img src={j.foto_url} alt={j.nome} className="w-full h-full object-cover" />
+                            ) : (
+                              j.nome[0]
+                            )}
+                          </div>
+                          {j.numero_camisa != null && (
+                            <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-background">
+                              {j.numero_camisa}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{j.nome}</p>
+                          <p className="text-xs text-muted-foreground">{j.posicao || "Posição não informada"}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          </div>
         )}
 
       </main>
