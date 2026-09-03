@@ -6,12 +6,14 @@ import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
   Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone,
-  ImagePlus, Loader2, KeyRound, Radio, UserRound
+  ImagePlus, Loader2, KeyRound, Radio, UserRound, Goal, Square, FileText
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
-interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
+interface Jogo { jogo_id: number; mandante: string; mandante_id: number | null; visitante: string; visitante_id: number | null; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
+interface EventoSumula { minuto: string; tempo: number | null; jogador: string; time: string; tipo: string; }
+interface Sumula { eventos: EventoSumula[]; cartoes: EventoSumula[]; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
 interface Jogador { jogador_id: number; nome: string; posicao?: string; foto_url?: string | null; cpf_revelado?: string; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
@@ -284,6 +286,22 @@ const Admin = () => {
   const [reagendando, setReagendando] = useState<number | null>(null);
   const [reagendarForm, setReagendarForm] = useState<{ data_hora: string; estadio_id: string }>({ data_hora: "", estadio_id: "" });
   const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
+
+  // Súmula (gol/cartão) de um jogo específico, editável direto na aba Jogos
+  const [jogoSumulaAberta, setJogoSumulaAberta] = useState<number | null>(null);
+  const [sumulaPorJogo, setSumulaPorJogo] = useState<Record<number, Sumula>>({});
+  const [carregandoSumula, setCarregandoSumula] = useState<number | null>(null);
+  const [elencoParaSumula, setElencoParaSumula] = useState<Record<number, Jogador[]>>({});
+  const [carregandoElencoSumula, setCarregandoElencoSumula] = useState<number | null>(null);
+  const [modalSumulaTipo, setModalSumulaTipo] = useState<"gol" | "cartao" | null>(null);
+  const [modalSumulaJogoId, setModalSumulaJogoId] = useState<number | null>(null);
+  const [modalSumulaTimeId, setModalSumulaTimeId] = useState<number | null>(null);
+  const [modalSumulaTimeNome, setModalSumulaTimeNome] = useState("");
+  const [modalSumulaJogadorId, setModalSumulaJogadorId] = useState("");
+  const [modalSumulaMinuto, setModalSumulaMinuto] = useState("");
+  const [modalSumulaTempo, setModalSumulaTempo] = useState<string>("");
+  const [modalSumulaCartaoTipo, setModalSumulaCartaoTipo] = useState<"amarelo" | "vermelho">("amarelo");
+  const [processandoSumula, setProcessandoSumula] = useState(false);
 
   // Presidentes por campeonato (aba master-only)
   const [presidentesPorCamp, setPresidentesPorCamp] = useState<Record<number, PresidenteAtribuido[]>>({});
@@ -888,6 +906,74 @@ const Admin = () => {
     }
   };
 
+  const fetchSumulaJogo = async (jogoId: number) => {
+    setCarregandoSumula(jogoId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/sumula`);
+      if (res.ok) {
+        const data = await res.json();
+        setSumulaPorJogo((prev) => ({ ...prev, [jogoId]: { eventos: data.eventos ?? [], cartoes: data.cartoes ?? [] } }));
+      }
+    } finally { setCarregandoSumula(null); }
+  };
+
+  const alternarSumulaJogo = (j: Jogo) => {
+    if (jogoSumulaAberta === j.jogo_id) { setJogoSumulaAberta(null); return; }
+    setJogoSumulaAberta(j.jogo_id);
+    if (!sumulaPorJogo[j.jogo_id]) fetchSumulaJogo(j.jogo_id);
+  };
+
+  const fetchElencoParaSumula = async (timeId: number) => {
+    if (elencoParaSumula[timeId]) return;
+    setCarregandoElencoSumula(timeId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/times/${timeId}/jogadores`);
+      if (res.ok) {
+        const data = await res.json();
+        setElencoParaSumula((prev) => ({ ...prev, [timeId]: data }));
+      }
+    } finally { setCarregandoElencoSumula(null); }
+  };
+
+  const abrirModalSumula = (jogoId: number, tipo: "gol" | "cartao", timeId: number, timeNome: string) => {
+    setModalSumulaTipo(tipo);
+    setModalSumulaJogoId(jogoId);
+    setModalSumulaTimeId(timeId);
+    setModalSumulaTimeNome(timeNome);
+    setModalSumulaJogadorId("");
+    setModalSumulaMinuto("");
+    setModalSumulaTempo("");
+    setModalSumulaCartaoTipo("amarelo");
+    fetchElencoParaSumula(timeId);
+  };
+
+  const fecharModalSumula = () => { setModalSumulaTipo(null); setModalSumulaJogoId(null); setModalSumulaTimeId(null); };
+
+  const confirmarModalSumula = async () => {
+    if (!modalSumulaJogoId || !modalSumulaTimeId || !modalSumulaJogadorId) return;
+    setProcessandoSumula(true);
+    try {
+      const body: any = {
+        jogador_id: parseInt(modalSumulaJogadorId),
+        time_id: modalSumulaTimeId,
+        minuto: modalSumulaMinuto || null,
+        tempo: modalSumulaTempo ? parseInt(modalSumulaTempo) : null,
+      };
+      const rota = modalSumulaTipo === "gol" ? "gols" : "cartoes";
+      if (modalSumulaTipo === "cartao") body.tipo = modalSumulaCartaoTipo;
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${modalSumulaJogoId}/${rota}`, { method: "POST", body: JSON.stringify(body) });
+      if (res.ok) {
+        const jogoId = modalSumulaJogoId;
+        fecharModalSumula();
+        fetchSumulaJogo(jogoId);
+      } else {
+        alert(await extrairMensagemErro(res, `Erro ao registrar ${modalSumulaTipo === "gol" ? "gol" : "cartão"}.`));
+      }
+    } catch (err) {
+      alert("Erro de conexão.");
+    } finally { setProcessandoSumula(false); }
+  };
+
   const roleBadgeColor = (role: string) => {
     const cores: Record<string, string> = { master: "bg-primary/10 text-primary", presidente: "bg-blue-100 text-blue-700", delegado: "bg-purple-100 text-purple-700", capitao: "bg-green-100 text-green-700", olheiro: "bg-yellow-100 text-yellow-700", torcedor: "bg-muted text-muted-foreground" };
     return cores[role] ?? "bg-muted text-muted-foreground";
@@ -1179,6 +1265,9 @@ const Admin = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
+                  <button onClick={() => alternarSumulaJogo(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Ver/editar súmula (gols e cartões)">
+                    {jogoSumulaAberta === j.jogo_id ? <X className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                  </button>
                   <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
                     {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                   </button>
@@ -1190,6 +1279,51 @@ const Admin = () => {
                   )}
                 </div>
               </div>
+              {jogoSumulaAberta === j.jogo_id && (
+                <div className="mt-2 p-3 bg-muted/30 rounded-xl border space-y-3">
+                  {carregandoSumula === j.jogo_id ? (
+                    <p className="text-xs text-muted-foreground">Carregando súmula...</p>
+                  ) : (
+                    <>
+                      {[
+                        { id: j.mandante_id, nome: j.mandante },
+                        { id: j.visitante_id, nome: j.visitante },
+                      ].map((time) => time.id ? (
+                        <div key={time.id} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium truncate">{time.nome}</span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button onClick={() => abrirModalSumula(j.jogo_id, "gol", time.id as number, time.nome)}
+                              className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors">
+                              <Goal className="w-3 h-3" /> Gol
+                            </button>
+                            <button onClick={() => abrirModalSumula(j.jogo_id, "cartao", time.id as number, time.nome)}
+                              className="flex items-center gap-1 text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded-lg hover:bg-yellow-100 transition-colors">
+                              <Square className="w-3 h-3" /> Cartão
+                            </button>
+                          </div>
+                        </div>
+                      ) : null)}
+                      {(() => {
+                        const s = sumulaPorJogo[j.jogo_id];
+                        const combinados = s ? [...s.eventos.map(e => ({ ...e, cat: "gol" as const })), ...s.cartoes.map(e => ({ ...e, cat: "cartao" as const }))] : [];
+                        if (combinados.length === 0) return <p className="text-xs text-muted-foreground">Nenhum gol ou cartão registrado ainda.</p>;
+                        return (
+                          <div className="space-y-1 pt-1 border-t">
+                            {combinados.map((e, i) => (
+                              <div key={i} className="flex items-center gap-1.5 text-xs">
+                                {e.cat === "gol" ? <Goal className="w-3 h-3 text-primary flex-shrink-0" /> : <Square className={`w-3 h-3 flex-shrink-0 ${e.tipo === "vermelho" ? "text-red-600" : "text-yellow-600"}`} />}
+                                <span className="text-muted-foreground">{e.minuto || "?"}'</span>
+                                <span className="font-medium">{e.jogador}</span>
+                                <span className="text-muted-foreground">({e.time})</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              )}
               {j.status !== "Finalizado" && editando !== j.jogo_id && (
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
@@ -1755,6 +1889,72 @@ const Admin = () => {
         )}
 
       </main>
+
+      {/* Modal registrar gol/cartão em jogo (via aba Jogos → súmula) */}
+      {modalSumulaTipo && modalSumulaTimeId && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-end sm:items-center justify-center" onClick={fecharModalSumula}>
+          <div className="bg-background w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg">{modalSumulaTipo === "gol" ? "Registrar Gol" : "Registrar Cartão"} — {modalSumulaTimeNome}</h3>
+              <button onClick={fecharModalSumula}><X className="w-5 h-5 text-muted-foreground" /></button>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Jogador *</label>
+              {carregandoElencoSumula === modalSumulaTimeId ? (
+                <p className="text-sm text-muted-foreground py-3">Carregando elenco...</p>
+              ) : (elencoParaSumula[modalSumulaTimeId]?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground py-3">Esse time não tem jogadores cadastrados ainda.</p>
+              ) : (
+                <SeletorBusca
+                  opcoes={(elencoParaSumula[modalSumulaTimeId] ?? []).map((jg) => ({ id: String(jg.jogador_id), label: jg.nome }))}
+                  valor={modalSumulaJogadorId}
+                  onSelecionar={setModalSumulaJogadorId}
+                  placeholder="Buscar jogador..."
+                />
+              )}
+            </div>
+
+            {modalSumulaTipo === "cartao" && (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Tipo de cartão *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setModalSumulaCartaoTipo("amarelo")}
+                    className={`py-3 rounded-lg text-sm font-medium border-2 transition-colors ${modalSumulaCartaoTipo === "amarelo" ? "border-yellow-500 bg-yellow-50 text-yellow-700" : "border-transparent bg-muted text-muted-foreground"}`}>
+                    🟨 Amarelo
+                  </button>
+                  <button onClick={() => setModalSumulaCartaoTipo("vermelho")}
+                    className={`py-3 rounded-lg text-sm font-medium border-2 transition-colors ${modalSumulaCartaoTipo === "vermelho" ? "border-red-500 bg-red-50 text-red-700" : "border-transparent bg-muted text-muted-foreground"}`}>
+                    🟥 Vermelho
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Minuto</label>
+                <input type="number" min="0" max="130" value={modalSumulaMinuto} onChange={(e) => setModalSumulaMinuto(e.target.value)} placeholder="Ex: 23"
+                  className="w-full px-4 py-3 rounded-xl border bg-background text-base focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Tempo</label>
+                <select value={modalSumulaTempo} onChange={(e) => setModalSumulaTempo(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-background text-base focus:outline-none focus:ring-2 focus:ring-primary/30">
+                  <option value="">Não sei</option>
+                  <option value="1">1º tempo</option>
+                  <option value="2">2º tempo</option>
+                </select>
+              </div>
+            </div>
+
+            <button onClick={confirmarModalSumula} disabled={!modalSumulaJogadorId || processandoSumula}
+              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3.5 rounded-xl text-base font-semibold hover:opacity-90 disabled:opacity-50">
+              {processandoSumula ? <RefreshCw className="w-5 h-5 animate-spin" /> : "Confirmar"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );
