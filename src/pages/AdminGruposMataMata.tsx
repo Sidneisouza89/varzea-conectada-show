@@ -53,13 +53,11 @@ const AdminGruposMataMata = () => {
   const [gruposAtuais, setGruposAtuais] = useState<Record<string, TimeInscrito[]>>({});
   const [loading, setLoading] = useState(true);
 
-  // --- Montagem de grupos ---
   const [atribuicoes, setAtribuicoes] = useState<Record<number, string>>({});
   const [gruposDisponiveis, setGruposDisponiveis] = useState<string[]>(["A", "B"]);
   const [salvandoGrupos, setSalvandoGrupos] = useState(false);
   const [msgGrupos, setMsgGrupos] = useState<Mensagem>(null);
 
-  // --- Gerar fase de grupos ---
   const [idaEVoltaFG, setIdaEVoltaFG] = useState(false);
   const [dataInicioFG, setDataInicioFG] = useState("");
   const [intervaloDiasFG, setIntervaloDiasFG] = useState(7);
@@ -67,14 +65,12 @@ const AdminGruposMataMata = () => {
   const [msgFG, setMsgFG] = useState<Mensagem>(null);
   const [resultadoFG, setResultadoFG] = useState<Record<string, string> | null>(null);
 
-  // --- Classificação por grupo (consulta) ---
   const [mostrarClassificacao, setMostrarClassificacao] = useState(false);
   const [classificacaoGrupos, setClassificacaoGrupos] = useState<Record<string, TimeClassificacao[]>>({});
   const [loadingClassificacao, setLoadingClassificacao] = useState(false);
 
-  // --- Gerar mata-mata pós-grupos ---
   const [classificadosPorGrupo, setClassificadosPorGrupo] = useState<1 | 2>(2);
-  const [modoMM, setModoMM] = useState<"sorteio" | "cruzamento">("cruzamento");
+  const [modoMM, setModoMM] = useState<"sorteio" | "cruzamento" | "seed_geral">("cruzamento");
   const [idaEVoltaMM, setIdaEVoltaMM] = useState(false);
   const [dataInicioMM, setDataInicioMM] = useState("");
   const [intervaloVoltaMM, setIntervaloVoltaMM] = useState(7);
@@ -87,7 +83,6 @@ const AdminGruposMataMata = () => {
     teve_bye: boolean;
   } | null>(null);
 
-  // --- Avançar fase (seed geral) ---
   const [dataInicioProxFase, setDataInicioProxFase] = useState("");
   const [loadingProxFase, setLoadingProxFase] = useState(false);
   const [msgProxFase, setMsgProxFase] = useState<Mensagem>(null);
@@ -118,7 +113,6 @@ const AdminGruposMataMata = () => {
         const grupos: Record<string, TimeInscrito[]> = await resGrupos.json();
         setGruposAtuais(grupos);
 
-        // Inicializa as atribuições e as letras disponíveis a partir do que já existe
         const atribInicial: Record<number, string> = {};
         const letras: string[] = [];
         Object.entries(grupos).forEach(([letra, lista]) => {
@@ -165,7 +159,7 @@ const AdminGruposMataMata = () => {
   };
 
   const handleAdicionarGrupo = () => {
-    const proximaLetra = String.fromCharCode(65 + gruposDisponiveis.length); // A, B, C...
+    const proximaLetra = String.fromCharCode(65 + gruposDisponiveis.length);
     setGruposDisponiveis([...gruposDisponiveis, proximaLetra]);
   };
 
@@ -179,7 +173,7 @@ const AdminGruposMataMata = () => {
     try {
       const payload: Record<string, number[]> = {};
       Object.entries(atribuicoes).forEach(([timeIdStr, letra]) => {
-        if (!letra) return; // "Sem grupo" não entra no payload
+        if (!letra) return;
         const timeId = Number(timeIdStr);
         payload[letra] = payload[letra] ? [...payload[letra], timeId] : [timeId];
       });
@@ -377,7 +371,6 @@ const AdminGruposMataMata = () => {
             </div>
           ) : (
             <>
-              {/* Buscar e adicionar time ao campeonato */}
               <div className="relative mb-4">
                 <input
                   type="text"
@@ -615,11 +608,12 @@ const AdminGruposMataMata = () => {
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Modo de confronto</label>
               <select
                 value={modoMM}
-                onChange={(e) => setModoMM(e.target.value as "sorteio" | "cruzamento")}
+                onChange={(e) => setModoMM(e.target.value as "sorteio" | "cruzamento" | "seed_geral")}
                 className="w-full text-sm rounded-md border bg-background px-3 py-2"
               >
                 <option value="cruzamento">Cruzamento (evita mesmo grupo)</option>
                 <option value="sorteio">Sorteio (totalmente aleatório)</option>
+                <option value="seed_geral">Seed Geral (1º x último, por campanha)</option>
               </select>
             </div>
             <div>
