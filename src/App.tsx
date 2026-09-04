@@ -15,6 +15,7 @@ import Materias from "./pages/Materias";
 import MateriaDetalhe from "./pages/MateriaDetalhe";
 import Admin from "./pages/Admin";
 import AdminGruposMataMata from "./pages/AdminGruposMataMata";
+import AdminMataMataPuro from "./pages/AdminMataMataPuro";
 import DelegadoPainel from "./pages/DelegadoPainel";
 import ChaveamentoMataMata from "./pages/ChaveamentoMataMata";
 import Perfil from "./pages/Perfil";
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/materias/:id" element={<MateriaDetalhe />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/campeonatos/:id/grupos" element={<AdminGruposMataMata />} />
+          <Route path="/admin/campeonatos/:id/mata-mata" element={<AdminMataMataPuro />} />
           <Route path="/delegado" element={<DelegadoPainel />} />
           <Route path="/campeonatos/:id/chaveamento" element={<ChaveamentoMataMata />} />
           <Route path="/perfil" element={<Perfil />} />
