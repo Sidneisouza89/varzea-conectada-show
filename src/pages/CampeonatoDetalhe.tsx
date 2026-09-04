@@ -343,6 +343,15 @@ const CampeonatoDetalhe = () => {
                 <Settings2 className="w-4 h-4" /> Gerenciar Grupos
               </button>
             )}
+
+            {isAdmin && campeonato?.tipo_formato === "MATA_MATA" && (
+              <button
+                onClick={() => navigate(`/admin/campeonatos/${id}/mata-mata`)}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors shrink-0"
+              >
+                <Settings2 className="w-4 h-4" /> Gerenciar Mata-Mata
+              </button>
+            )}
           </div>
         )}
 
