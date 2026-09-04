@@ -11,6 +11,7 @@ import {
 
 interface TimeTabela {
   nome: string;
+  logo_url?: string | null;
   pts: number;
   pj: number;
   v: number;
@@ -195,8 +196,8 @@ const CampeonatoDetalhe = () => {
             </td>
             <td className="px-4 py-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                  {time.nome[0]}
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs overflow-hidden">
+                  {time.logo_url ? <img src={time.logo_url} alt={time.nome} className="w-full h-full object-cover" /> : time.nome[0]}
                 </div>
                 <span className="font-medium">{time.nome}</span>
               </div>
@@ -265,8 +266,8 @@ const CampeonatoDetalhe = () => {
             </td>
             <td className="px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px] shrink-0">
-                  {time.nome[0]}
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px] shrink-0 overflow-hidden">
+                  {time.logo_url ? <img src={time.logo_url} alt={time.nome} className="w-full h-full object-cover" /> : time.nome[0]}
                 </div>
                 <span className="font-medium truncate">{time.nome}</span>
               </div>
