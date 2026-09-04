@@ -6,13 +6,16 @@ import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
   Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone,
-  ImagePlus, Loader2, KeyRound
+  ImagePlus, Loader2, KeyRound, Radio, UserRound, Goal, Square, FileText
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
-interface Jogo { jogo_id: number; mandante: string; visitante: string; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
+interface Jogo { jogo_id: number; mandante: string; mandante_id: number | null; visitante: string; visitante_id: number | null; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
+interface EventoSumula { minuto: string; tempo: number | null; jogador: string; time: string; tipo: string; }
+interface Sumula { eventos: EventoSumula[]; cartoes: EventoSumula[]; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
+interface Jogador { jogador_id: number; nome: string; posicao?: string; foto_url?: string | null; cpf_revelado?: string; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
 interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
@@ -49,7 +52,7 @@ const uploadImagemCloudinary = async (arquivo: File): Promise<string> => {
   return data.secure_url as string;
 };
 
-type Aba = "usuarios"|"presidentes"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
+type Aba = "usuarios"|"presidentes"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"jogadores"|"novo_jogador"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
 
 // Mensagem padrão quando a sessão expira de vez (falha até na tentativa de refresh)
 const SESSION_EXPIRED_MSG = "Sua sessão expirou. Saia e entre novamente no Admin para continuar.";
@@ -233,6 +236,31 @@ const Admin = () => {
   const [timeEdit, setTimeEdit] = useState({ nome_oficial: "", apelido: "", regiao: "", logo_url: "" });
   const [salvandoTime, setSalvandoTime] = useState(false);
 
+  // Jogadores — elenco de um time escolhido
+  const [timeSelecionadoJogadores, setTimeSelecionadoJogadores] = useState("");
+  const [jogadoresDoTime, setJogadoresDoTime] = useState<Jogador[]>([]);
+  const [carregandoJogadoresTime, setCarregandoJogadoresTime] = useState(false);
+
+  // Número de camisa — depende de time + campeonato selecionados
+  const [campeonatoSelecionadoJogadores, setCampeonatoSelecionadoJogadores] = useState("");
+  const [numerosPorJogador, setNumerosPorJogador] = useState<Record<number, number | null>>({});
+  const [carregandoNumeros, setCarregandoNumeros] = useState(false);
+  const [editandoNumeroJogadorId, setEditandoNumeroJogadorId] = useState<number | null>(null);
+  const [numeroInputValor, setNumeroInputValor] = useState("");
+  const [salvandoNumero, setSalvandoNumero] = useState<number | null>(null);
+
+  // Novo jogador
+  const [novoJogadorForm, setNovoJogadorForm] = useState({ nome: "", time_id: "", posicao: "", cpf: "", data_nascimento: "", foto_url: "" });
+  const [criandoJogador, setCriandoJogador] = useState(false);
+  const [msgJogador, setMsgJogador] = useState("");
+  const [enviandoFotoJogadorNovo, setEnviandoFotoJogadorNovo] = useState(false);
+
+  // Editar jogador
+  const [jogadorEditando, setJogadorEditando] = useState<Jogador | null>(null);
+  const [jogadorEdit, setJogadorEdit] = useState({ nome: "", posicao: "", foto_url: "" });
+  const [salvandoJogador, setSalvandoJogador] = useState(false);
+  const [enviandoFotoJogadorEdit, setEnviandoFotoJogadorEdit] = useState(false);
+
   // Novo estádio
   const [novoEstadio, setNovoEstadio] = useState({ nome_oficial: "", apelido: "", rua: "", numero: "", bairro: "", cidade: "Diadema", estado: "SP", cep: "" });
   const [criandoEstadio, setCriandoEstadio] = useState(false);
@@ -266,6 +294,22 @@ const Admin = () => {
   const [reagendando, setReagendando] = useState<number | null>(null);
   const [reagendarForm, setReagendarForm] = useState<{ data_hora: string; estadio_id: string }>({ data_hora: "", estadio_id: "" });
   const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
+
+  // Súmula (gol/cartão) de um jogo específico, editável direto na aba Jogos
+  const [jogoSumulaAberta, setJogoSumulaAberta] = useState<number | null>(null);
+  const [sumulaPorJogo, setSumulaPorJogo] = useState<Record<number, Sumula>>({});
+  const [carregandoSumula, setCarregandoSumula] = useState<number | null>(null);
+  const [elencoParaSumula, setElencoParaSumula] = useState<Record<number, Jogador[]>>({});
+  const [carregandoElencoSumula, setCarregandoElencoSumula] = useState<number | null>(null);
+  const [modalSumulaTipo, setModalSumulaTipo] = useState<"gol" | "cartao" | null>(null);
+  const [modalSumulaJogoId, setModalSumulaJogoId] = useState<number | null>(null);
+  const [modalSumulaTimeId, setModalSumulaTimeId] = useState<number | null>(null);
+  const [modalSumulaTimeNome, setModalSumulaTimeNome] = useState("");
+  const [modalSumulaJogadorId, setModalSumulaJogadorId] = useState("");
+  const [modalSumulaMinuto, setModalSumulaMinuto] = useState("");
+  const [modalSumulaTempo, setModalSumulaTempo] = useState<string>("");
+  const [modalSumulaCartaoTipo, setModalSumulaCartaoTipo] = useState<"amarelo" | "vermelho">("amarelo");
+  const [processandoSumula, setProcessandoSumula] = useState(false);
 
   // Presidentes por campeonato (aba master-only)
   const [presidentesPorCamp, setPresidentesPorCamp] = useState<Record<number, PresidenteAtribuido[]>>({});
@@ -621,6 +665,160 @@ const Admin = () => {
     } finally { setSalvandoTime(false); }
   };
 
+  const fetchJogadoresDoTime = async (timeId: string) => {
+    if (!timeId) { setJogadoresDoTime([]); return; }
+    setCarregandoJogadoresTime(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/times/${timeId}/jogadores`);
+      if (res.ok) setJogadoresDoTime(await res.json());
+      else { setJogadoresDoTime([]); alert(await extrairMensagemErro(res, "Erro ao carregar elenco.")); }
+    } catch (err) {
+      alert("Erro de conexão ao carregar elenco.");
+    } finally { setCarregandoJogadoresTime(false); }
+  };
+
+  const selecionarTimeJogadores = (timeId: string) => {
+    setTimeSelecionadoJogadores(timeId);
+    fetchJogadoresDoTime(timeId);
+    setNumerosPorJogador({});
+    if (campeonatoSelecionadoJogadores) fetchNumerosCamisa(timeId, campeonatoSelecionadoJogadores);
+  };
+
+  const fetchNumerosCamisa = async (timeId: string, campeonatoId: string) => {
+    if (!timeId || !campeonatoId) { setNumerosPorJogador({}); return; }
+    setCarregandoNumeros(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/times/${timeId}/elenco-publico?campeonato_id=${campeonatoId}`);
+      if (res.ok) {
+        const data: { jogador_id: number; numero_camisa: number | null }[] = await res.json();
+        const mapa: Record<number, number | null> = {};
+        data.forEach((j) => { mapa[j.jogador_id] = j.numero_camisa; });
+        setNumerosPorJogador(mapa);
+      }
+    } finally { setCarregandoNumeros(false); }
+  };
+
+  const selecionarCampeonatoJogadores = (campId: string) => {
+    setCampeonatoSelecionadoJogadores(campId);
+    if (timeSelecionadoJogadores) fetchNumerosCamisa(timeSelecionadoJogadores, campId);
+  };
+
+  const abrirEdicaoNumero = (jogadorId: number) => {
+    setEditandoNumeroJogadorId(jogadorId);
+    setNumeroInputValor(numerosPorJogador[jogadorId] != null ? String(numerosPorJogador[jogadorId]) : "");
+  };
+
+  const salvarNumeroCamisa = async (jogadorId: number) => {
+    if (!timeSelecionadoJogadores || !campeonatoSelecionadoJogadores || !numeroInputValor) return;
+    setSalvandoNumero(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/camisa`, {
+        method: "POST",
+        body: JSON.stringify({
+          time_id: parseInt(timeSelecionadoJogadores),
+          campeonato_id: parseInt(campeonatoSelecionadoJogadores),
+          numero_camisa: parseInt(numeroInputValor),
+        }),
+      });
+      if (res.ok) {
+        setEditandoNumeroJogadorId(null);
+        fetchNumerosCamisa(timeSelecionadoJogadores, campeonatoSelecionadoJogadores);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao salvar número de camisa."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao salvar número de camisa.");
+    } finally { setSalvandoNumero(null); }
+  };
+
+  const removerNumeroCamisa = async (jogadorId: number) => {
+    if (!timeSelecionadoJogadores || !campeonatoSelecionadoJogadores) return;
+    if (!confirm("Remover o número de camisa desse jogador nesse campeonato?")) return;
+    setSalvandoNumero(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/camisa?time_id=${timeSelecionadoJogadores}&campeonato_id=${campeonatoSelecionadoJogadores}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchNumerosCamisa(timeSelecionadoJogadores, campeonatoSelecionadoJogadores);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao remover número de camisa."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao remover número de camisa.");
+    } finally { setSalvandoNumero(null); }
+  };
+
+  const handleUploadFotoJogadorNovo = async (arquivo: File) => {
+    setEnviandoFotoJogadorNovo(true); setMsgJogador("");
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      setNovoJogadorForm((p) => ({ ...p, foto_url: url }));
+    } catch (err) {
+      setMsgJogador("Erro ao enviar a foto. Tenta de novo.");
+    } finally { setEnviandoFotoJogadorNovo(false); }
+  };
+
+  const criarJogador = async () => {
+    if (!novoJogadorForm.nome.trim() || !novoJogadorForm.time_id || !novoJogadorForm.cpf.trim() || !novoJogadorForm.data_nascimento) {
+      setMsgJogador("Preencha nome, time, CPF e data de nascimento.");
+      return;
+    }
+    setCriandoJogador(true); setMsgJogador("");
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores`, {
+        method: "POST",
+        body: JSON.stringify({
+          nome: novoJogadorForm.nome,
+          time_id: parseInt(novoJogadorForm.time_id),
+          posicao: novoJogadorForm.posicao,
+          cpf: novoJogadorForm.cpf,
+          data_nascimento: novoJogadorForm.data_nascimento,
+          foto_url: novoJogadorForm.foto_url || null,
+        }),
+      });
+      if (res.ok) {
+        setMsgJogador("✅ Jogador cadastrado!");
+        setNovoJogadorForm({ nome: "", time_id: "", posicao: "", cpf: "", data_nascimento: "", foto_url: "" });
+        if (timeSelecionadoJogadores) fetchJogadoresDoTime(timeSelecionadoJogadores);
+        setTimeout(() => setAba("jogadores"), 1500);
+      } else {
+        setMsgJogador(await extrairMensagemErro(res, "Erro ao cadastrar jogador."));
+      }
+    } catch (err) {
+      setMsgJogador("Erro de conexão ao cadastrar jogador.");
+    } finally { setCriandoJogador(false); }
+  };
+
+  const abrirEdicaoJogador = (j: Jogador) => {
+    setJogadorEditando(j);
+    setJogadorEdit({ nome: j.nome, posicao: j.posicao ?? "", foto_url: j.foto_url ?? "" });
+  };
+
+  const handleUploadFotoJogadorEdit = async (arquivo: File) => {
+    setEnviandoFotoJogadorEdit(true);
+    try {
+      const url = await uploadImagemCloudinary(arquivo);
+      setJogadorEdit((p) => ({ ...p, foto_url: url }));
+    } catch (err) {
+      alert("Erro ao enviar a foto. Tenta de novo.");
+    } finally { setEnviandoFotoJogadorEdit(false); }
+  };
+
+  const salvarEdicaoJogador = async () => {
+    if (!jogadorEditando) return;
+    setSalvandoJogador(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorEditando.jogador_id}`, { method: "PUT", body: JSON.stringify(jogadorEdit) });
+      if (res.ok) {
+        setJogadorEditando(null);
+        if (timeSelecionadoJogadores) fetchJogadoresDoTime(timeSelecionadoJogadores);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao salvar jogador."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao salvar jogador.");
+    } finally { setSalvandoJogador(false); }
+  };
+
   const criarEstadio = async () => {
     if (!novoEstadio.nome_oficial.trim()) { setMsgEstadio("Preencha o nome do estádio."); return; }
     setCriandoEstadio(true); setMsgEstadio("");
@@ -781,6 +979,74 @@ const Admin = () => {
     }
   };
 
+  const fetchSumulaJogo = async (jogoId: number) => {
+    setCarregandoSumula(jogoId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/sumula`);
+      if (res.ok) {
+        const data = await res.json();
+        setSumulaPorJogo((prev) => ({ ...prev, [jogoId]: { eventos: data.eventos ?? [], cartoes: data.cartoes ?? [] } }));
+      }
+    } finally { setCarregandoSumula(null); }
+  };
+
+  const alternarSumulaJogo = (j: Jogo) => {
+    if (jogoSumulaAberta === j.jogo_id) { setJogoSumulaAberta(null); return; }
+    setJogoSumulaAberta(j.jogo_id);
+    if (!sumulaPorJogo[j.jogo_id]) fetchSumulaJogo(j.jogo_id);
+  };
+
+  const fetchElencoParaSumula = async (timeId: number) => {
+    if (elencoParaSumula[timeId]) return;
+    setCarregandoElencoSumula(timeId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/times/${timeId}/jogadores`);
+      if (res.ok) {
+        const data = await res.json();
+        setElencoParaSumula((prev) => ({ ...prev, [timeId]: data }));
+      }
+    } finally { setCarregandoElencoSumula(null); }
+  };
+
+  const abrirModalSumula = (jogoId: number, tipo: "gol" | "cartao", timeId: number, timeNome: string) => {
+    setModalSumulaTipo(tipo);
+    setModalSumulaJogoId(jogoId);
+    setModalSumulaTimeId(timeId);
+    setModalSumulaTimeNome(timeNome);
+    setModalSumulaJogadorId("");
+    setModalSumulaMinuto("");
+    setModalSumulaTempo("");
+    setModalSumulaCartaoTipo("amarelo");
+    fetchElencoParaSumula(timeId);
+  };
+
+  const fecharModalSumula = () => { setModalSumulaTipo(null); setModalSumulaJogoId(null); setModalSumulaTimeId(null); };
+
+  const confirmarModalSumula = async () => {
+    if (!modalSumulaJogoId || !modalSumulaTimeId || !modalSumulaJogadorId) return;
+    setProcessandoSumula(true);
+    try {
+      const body: any = {
+        jogador_id: parseInt(modalSumulaJogadorId),
+        time_id: modalSumulaTimeId,
+        minuto: modalSumulaMinuto || null,
+        tempo: modalSumulaTempo ? parseInt(modalSumulaTempo) : null,
+      };
+      const rota = modalSumulaTipo === "gol" ? "gols" : "cartoes";
+      if (modalSumulaTipo === "cartao") body.tipo = modalSumulaCartaoTipo;
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${modalSumulaJogoId}/${rota}`, { method: "POST", body: JSON.stringify(body) });
+      if (res.ok) {
+        const jogoId = modalSumulaJogoId;
+        fecharModalSumula();
+        fetchSumulaJogo(jogoId);
+      } else {
+        alert(await extrairMensagemErro(res, `Erro ao registrar ${modalSumulaTipo === "gol" ? "gol" : "cartão"}.`));
+      }
+    } catch (err) {
+      alert("Erro de conexão.");
+    } finally { setProcessandoSumula(false); }
+  };
+
   const roleBadgeColor = (role: string) => {
     const cores: Record<string, string> = { master: "bg-primary/10 text-primary", presidente: "bg-blue-100 text-blue-700", delegado: "bg-purple-100 text-purple-700", capitao: "bg-green-100 text-green-700", olheiro: "bg-yellow-100 text-yellow-700", torcedor: "bg-muted text-muted-foreground" };
     return cores[role] ?? "bg-muted text-muted-foreground";
@@ -795,6 +1061,8 @@ const Admin = () => {
     { key: "novo_jogo", label: "Novo Jogo", icon: Calendar },
     { key: "times", label: "Times", icon: Shirt },
     ...(isMaster ? [{ key: "novo_time" as Aba, label: "Novo Time", icon: PlusCircle }] : []),
+    ...(isMaster ? [{ key: "jogadores" as Aba, label: "Jogadores", icon: UserRound }] : []),
+    ...(isMaster ? [{ key: "novo_jogador" as Aba, label: "Novo Jogador", icon: PlusCircle }] : []),
     { key: "estadios", label: "Estádios", icon: MapPin },
     ...(isMaster ? [{ key: "novo_estadio" as Aba, label: "Novo Estádio", icon: PlusCircle }] : []),
     { key: "contatos", label: "Contatos", icon: Phone },
@@ -821,9 +1089,12 @@ const Admin = () => {
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4"><ShieldCheck className="w-8 h-8 text-primary" /></div>
           <h1 className="text-4xl font-bold mb-2">Painel Administrativo</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             {isMaster ? "Gerencie usuários, campeonatos, jogos e conteúdo" : "Gerencie o(s) campeonato(s) sob sua responsabilidade"}
           </p>
+          <button onClick={() => navigate("/delegado")} className="inline-flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity">
+            <Radio className="w-4 h-4" /> Painel do Delegado (registrar jogo ao vivo)
+          </button>
         </div>
 
         {/* Resumo */}
@@ -1067,6 +1338,9 @@ const Admin = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
+                  <button onClick={() => alternarSumulaJogo(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Ver/editar súmula (gols e cartões)">
+                    {jogoSumulaAberta === j.jogo_id ? <X className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                  </button>
                   <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
                     {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                   </button>
@@ -1078,6 +1352,51 @@ const Admin = () => {
                   )}
                 </div>
               </div>
+              {jogoSumulaAberta === j.jogo_id && (
+                <div className="mt-2 p-3 bg-muted/30 rounded-xl border space-y-3">
+                  {carregandoSumula === j.jogo_id ? (
+                    <p className="text-xs text-muted-foreground">Carregando súmula...</p>
+                  ) : (
+                    <>
+                      {[
+                        { id: j.mandante_id, nome: j.mandante },
+                        { id: j.visitante_id, nome: j.visitante },
+                      ].map((time) => time.id ? (
+                        <div key={time.id} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium truncate">{time.nome}</span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button onClick={() => abrirModalSumula(j.jogo_id, "gol", time.id as number, time.nome)}
+                              className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors">
+                              <Goal className="w-3 h-3" /> Gol
+                            </button>
+                            <button onClick={() => abrirModalSumula(j.jogo_id, "cartao", time.id as number, time.nome)}
+                              className="flex items-center gap-1 text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded-lg hover:bg-yellow-100 transition-colors">
+                              <Square className="w-3 h-3" /> Cartão
+                            </button>
+                          </div>
+                        </div>
+                      ) : null)}
+                      {(() => {
+                        const s = sumulaPorJogo[j.jogo_id];
+                        const combinados = s ? [...s.eventos.map(e => ({ ...e, cat: "gol" as const })), ...s.cartoes.map(e => ({ ...e, cat: "cartao" as const }))] : [];
+                        if (combinados.length === 0) return <p className="text-xs text-muted-foreground">Nenhum gol ou cartão registrado ainda.</p>;
+                        return (
+                          <div className="space-y-1 pt-1 border-t">
+                            {combinados.map((e, i) => (
+                              <div key={i} className="flex items-center gap-1.5 text-xs">
+                                {e.cat === "gol" ? <Goal className="w-3 h-3 text-primary flex-shrink-0" /> : <Square className={`w-3 h-3 flex-shrink-0 ${e.tipo === "vermelho" ? "text-red-600" : "text-yellow-600"}`} />}
+                                <span className="text-muted-foreground">{e.minuto || "?"}'</span>
+                                <span className="font-medium">{e.jogador}</span>
+                                <span className="text-muted-foreground">({e.time})</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              )}
               {j.status !== "Finalizado" && editando !== j.jogo_id && (
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
@@ -1271,6 +1590,140 @@ const Admin = () => {
               <div className="flex gap-3 pt-2">
                 <button onClick={criarTime} disabled={criandoTime} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoTime ? "Salvando..." : "Cadastrar Time"}</button>
                 <button onClick={() => setNovoTimeForm({ nome_oficial: "", apelido: "", regiao: "Diadema", logo_url: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ABA: JOGADORES (master-only) — escolhe um time, vê e edita o elenco */}
+        {aba === "jogadores" && isMaster && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm">
+            <div className="px-6 pt-4 pb-6 border-b space-y-3 relative z-10 rounded-t-xl bg-card/80">
+              <h2 className="font-bold text-lg">Jogadores</h2>
+              <SeletorBusca
+                opcoes={times.map((t) => ({ id: String(t.id), label: t.nome_oficial }))}
+                valor={timeSelecionadoJogadores}
+                onSelecionar={selecionarTimeJogadores}
+                placeholder="Escolha um time pra ver o elenco..."
+              />
+              <SeletorBusca
+                opcoes={campeonatos.map((c) => ({ id: String(c.campeonato_id), label: c.nome }))}
+                valor={campeonatoSelecionadoJogadores}
+                onSelecionar={selecionarCampeonatoJogadores}
+                placeholder="Escolha um campeonato pra ver/editar números de camisa (opcional)..."
+              />
+            </div>
+            {!timeSelecionadoJogadores ? (
+              <div className="p-8 text-center text-muted-foreground">Escolha um time acima pra ver o elenco.</div>
+            ) : carregandoJogadoresTime ? (
+              <div className="p-8 text-center text-muted-foreground">Carregando...</div>
+            ) : jogadoresDoTime.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">Esse time ainda não tem jogadores cadastrados.</div>
+            ) : (
+              <div className="divide-y max-h-[32rem] overflow-y-auto rounded-b-xl">
+                {jogadoresDoTime.map((j) => (
+                  <div key={j.jogador_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
+                    {jogadorEditando?.jogador_id === j.jogador_id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={jogadorEdit.nome} onChange={(ev) => setJogadorEdit(p => ({ ...p, nome: ev.target.value }))} placeholder="Nome" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          <input value={jogadorEdit.posicao} onChange={(ev) => setJogadorEdit(p => ({ ...p, posicao: ev.target.value }))} placeholder="Posição" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {jogadorEdit.foto_url && <img src={jogadorEdit.foto_url} alt="" className="w-12 h-12 rounded-full object-cover" />}
+                          <label className="flex items-center gap-1.5 text-xs text-primary font-medium cursor-pointer hover:opacity-80">
+                            {enviandoFotoJogadorEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                            {enviandoFotoJogadorEdit ? "Enviando..." : jogadorEdit.foto_url ? "Trocar foto" : "Adicionar foto"}
+                            <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoJogadorEdit} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadFotoJogadorEdit(f); }} />
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={salvarEdicaoJogador} disabled={salvandoJogador} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+                            {salvandoJogador ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                          </button>
+                          <button onClick={() => setJogadorEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm overflow-hidden flex-shrink-0">
+                            {j.foto_url ? <img src={j.foto_url} alt={j.nome} className="w-full h-full object-cover" /> : j.nome[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{j.nome}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{j.posicao || "Posição não informada"}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {campeonatoSelecionadoJogadores && (
+                            editandoNumeroJogadorId === j.jogador_id ? (
+                              <div className="flex items-center gap-1">
+                                <input type="number" min="0" max="999" autoFocus value={numeroInputValor} onChange={(e) => setNumeroInputValor(e.target.value)}
+                                  className="w-14 text-center border rounded-lg px-1 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                                <button onClick={() => salvarNumeroCamisa(j.jogador_id)} disabled={!numeroInputValor || salvandoNumero === j.jogador_id} className="text-primary hover:opacity-70 disabled:opacity-50" title="Salvar número">
+                                  {salvandoNumero === j.jogador_id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                </button>
+                                <button onClick={() => setEditandoNumeroJogadorId(null)} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="w-3.5 h-3.5" /></button>
+                                {numerosPorJogador[j.jogador_id] != null && (
+                                  <button onClick={() => { removerNumeroCamisa(j.jogador_id); setEditandoNumeroJogadorId(null); }} className="text-destructive hover:opacity-70" title="Remover número">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <button onClick={() => abrirEdicaoNumero(j.jogador_id)} disabled={carregandoNumeros}
+                                className="flex items-center justify-center w-7 h-7 rounded-full border-2 border-primary/30 text-primary text-xs font-bold hover:bg-primary/10 transition-colors disabled:opacity-50"
+                                title="Editar número de camisa">
+                                {carregandoNumeros ? <Loader2 className="w-3 h-3 animate-spin" /> : (numerosPorJogador[j.jogador_id] ?? "+")}
+                              </button>
+                            )
+                          )}
+                          <button onClick={() => abrirEdicaoJogador(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar jogador">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA: NOVO JOGADOR (master-only) */}
+        {aba === "novo_jogador" && isMaster && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
+            <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><UserRound className="w-5 h-5 text-primary" /> Cadastrar Novo Jogador</h2>
+            <div className="space-y-4">
+              <div><label className="text-sm font-medium mb-1.5 block">Nome *</label><input type="text" value={novoJogadorForm.nome} onChange={(e) => setNovoJogadorForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Kaue Rodrigues Dos Santos" className={inputClass} /></div>
+              <div><label className="text-sm font-medium mb-1.5 block">Time *</label>
+                <SeletorBusca
+                  opcoes={times.map((t) => ({ id: String(t.id), label: t.nome_oficial }))}
+                  valor={novoJogadorForm.time_id}
+                  onSelecionar={(idSel) => setNovoJogadorForm(p => ({ ...p, time_id: idSel }))}
+                  placeholder="Buscar time..."
+                />
+              </div>
+              <div><label className="text-sm font-medium mb-1.5 block">Posição</label><input type="text" value={novoJogadorForm.posicao} onChange={(e) => setNovoJogadorForm(p => ({ ...p, posicao: e.target.value }))} placeholder="Ex: Lateral Direito" className={inputClass} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-sm font-medium mb-1.5 block">CPF *</label><input type="text" value={novoJogadorForm.cpf} onChange={(e) => setNovoJogadorForm(p => ({ ...p, cpf: e.target.value }))} placeholder="000.000.000-00" className={inputClass} /></div>
+                <div><label className="text-sm font-medium mb-1.5 block">Data de Nascimento *</label><input type="date" value={novoJogadorForm.data_nascimento} onChange={(e) => setNovoJogadorForm(p => ({ ...p, data_nascimento: e.target.value }))} className={inputClass} /></div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Foto (opcional)</label>
+                {novoJogadorForm.foto_url && <img src={novoJogadorForm.foto_url} alt="Prévia" className="w-24 h-24 rounded-full object-cover mb-2 mx-auto" />}
+                <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-4 text-sm text-muted-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                  {enviandoFotoJogadorNovo ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                  {enviandoFotoJogadorNovo ? "Enviando..." : novoJogadorForm.foto_url ? "Trocar foto" : "Escolher foto"}
+                  <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoJogadorNovo} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadFotoJogadorNovo(f); }} />
+                </label>
+              </div>
+              {msgJogador && <p className={`text-sm font-medium ${msgJogador.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgJogador}</p>}
+              <div className="flex gap-3 pt-2">
+                <button onClick={criarJogador} disabled={criandoJogador || enviandoFotoJogadorNovo} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoJogador ? "Salvando..." : "Cadastrar Jogador"}</button>
+                <button onClick={() => { setNovoJogadorForm({ nome: "", time_id: "", posicao: "", cpf: "", data_nascimento: "", foto_url: "" }); setMsgJogador(""); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
@@ -1540,6 +1993,72 @@ const Admin = () => {
         )}
 
       </main>
+
+      {/* Modal registrar gol/cartão em jogo (via aba Jogos → súmula) */}
+      {modalSumulaTipo && modalSumulaTimeId && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-end sm:items-center justify-center" onClick={fecharModalSumula}>
+          <div className="bg-background w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg">{modalSumulaTipo === "gol" ? "Registrar Gol" : "Registrar Cartão"} — {modalSumulaTimeNome}</h3>
+              <button onClick={fecharModalSumula}><X className="w-5 h-5 text-muted-foreground" /></button>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Jogador *</label>
+              {carregandoElencoSumula === modalSumulaTimeId ? (
+                <p className="text-sm text-muted-foreground py-3">Carregando elenco...</p>
+              ) : (elencoParaSumula[modalSumulaTimeId]?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground py-3">Esse time não tem jogadores cadastrados ainda.</p>
+              ) : (
+                <SeletorBusca
+                  opcoes={(elencoParaSumula[modalSumulaTimeId] ?? []).map((jg) => ({ id: String(jg.jogador_id), label: jg.nome }))}
+                  valor={modalSumulaJogadorId}
+                  onSelecionar={setModalSumulaJogadorId}
+                  placeholder="Buscar jogador..."
+                />
+              )}
+            </div>
+
+            {modalSumulaTipo === "cartao" && (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Tipo de cartão *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setModalSumulaCartaoTipo("amarelo")}
+                    className={`py-3 rounded-lg text-sm font-medium border-2 transition-colors ${modalSumulaCartaoTipo === "amarelo" ? "border-yellow-500 bg-yellow-50 text-yellow-700" : "border-transparent bg-muted text-muted-foreground"}`}>
+                    🟨 Amarelo
+                  </button>
+                  <button onClick={() => setModalSumulaCartaoTipo("vermelho")}
+                    className={`py-3 rounded-lg text-sm font-medium border-2 transition-colors ${modalSumulaCartaoTipo === "vermelho" ? "border-red-500 bg-red-50 text-red-700" : "border-transparent bg-muted text-muted-foreground"}`}>
+                    🟥 Vermelho
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Minuto</label>
+                <input type="number" min="0" max="130" value={modalSumulaMinuto} onChange={(e) => setModalSumulaMinuto(e.target.value)} placeholder="Ex: 23"
+                  className="w-full px-4 py-3 rounded-xl border bg-background text-base focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Tempo</label>
+                <select value={modalSumulaTempo} onChange={(e) => setModalSumulaTempo(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-background text-base focus:outline-none focus:ring-2 focus:ring-primary/30">
+                  <option value="">Não sei</option>
+                  <option value="1">1º tempo</option>
+                  <option value="2">2º tempo</option>
+                </select>
+              </div>
+            </div>
+
+            <button onClick={confirmarModalSumula} disabled={!modalSumulaJogadorId || processandoSumula}
+              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3.5 rounded-xl text-base font-semibold hover:opacity-90 disabled:opacity-50">
+              {processandoSumula ? <RefreshCw className="w-5 h-5 animate-spin" /> : "Confirmar"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

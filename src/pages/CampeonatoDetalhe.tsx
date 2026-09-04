@@ -6,7 +6,7 @@ import { API_BASE_URL } from "@/lib/api";
 import {
   Trophy, ArrowLeft, Shield, Swords, TrendingUp,
   CheckCircle2, Minus, XCircle, Calendar, LayoutGrid, ListOrdered,
-  Settings2 // NOVO
+  Settings2, GitBranch
 } from "lucide-react";
 
 interface TimeTabela {
@@ -34,8 +34,8 @@ interface Jogo {
   status: string;
   gols_mandante: number;
   gols_visitante: number;
-  rodada: number | null; // NOVO
-  confronto_id: number | null; // NOVO
+  rodada: number | null;
+  confronto_id: number | null;
 }
 
 interface Campeonato {
@@ -68,7 +68,7 @@ const CampeonatoDetalhe = () => {
   const [aba, setAba] = useState<"tabela" | "jogos">("tabela");
   const [loading, setLoading] = useState(true);
 
-  // NOVO: identifica se o usuário logado é admin (mesmo critério usado no Header)
+  // identifica se o usuário logado é admin (mesmo critério usado no Header)
   const storedUser = localStorage.getItem("varzeando_user");
   const user = storedUser ? JSON.parse(storedUser) : null;
   const isAdmin = user?.role === "master" || user?.role === "presidente";
@@ -76,7 +76,6 @@ const CampeonatoDetalhe = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Busca classificação por grupos e classificação geral em paralelo
         const [resGrupos, resClass] = await Promise.all([
           fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao-grupos`),
           fetch(`${API_BASE_URL}/api/campeonatos/${id}/classificacao`),
@@ -97,7 +96,6 @@ const CampeonatoDetalhe = () => {
           setCampeonato((prev) => prev ?? { campeonato_id: Number(id), nome: dataClass.campeonato, tipo_formato: "", pontos_vitoria: 3, pontos_empate: 1, ativo: true });
         }
 
-        // Busca todos os jogos e filtra pelo campeonato
         const token = localStorage.getItem("varzeando_token");
         const resJogos = await fetch(`${API_BASE_URL}/api/jogos`, {
           headers: {
@@ -107,7 +105,6 @@ const CampeonatoDetalhe = () => {
         });
         if (resJogos.ok) {
           const dataJogos: Jogo[] = await resJogos.json();
-          // Busca o nome/status do campeonato pra completar o header e filtrar
           const resC = await fetch(`${API_BASE_URL}/api/campeonatos`);
           if (resC.ok) {
             const camps: Campeonato[] = await resC.json();
@@ -132,8 +129,11 @@ const CampeonatoDetalhe = () => {
   const jogosFinaliz = jogos.filter(j => j.status === "Finalizado");
   const jogosProximos = jogos.filter(j => j.status === "Agendado");
 
-  // NOVO: mapeia rodada -> nome da fase, baseado em quantos confrontos distintos existem nela.
-  // Só entra nesse cálculo jogo que tenha confronto_id preenchido (marca de mata-mata).
+  // Já tem algum jogo de mata-mata gerado (confronto_id preenchido)? Se sim,
+  // mostra o botão "Ver Chaveamento" — é visualização pública, não gestão,
+  // então aparece pra qualquer visitante, não só admin.
+  const temChaveamento = jogos.some(j => j.confronto_id != null);
+
   const nomeFasePorRodada = (() => {
     const confrontosPorRodada: Record<number, Set<number>> = {};
     jogos.forEach((j) => {
@@ -161,7 +161,6 @@ const CampeonatoDetalhe = () => {
     return nomeFasePorRodada[j.rodada] ?? null;
   };
 
-  // Tabela completa, usada na visão "Geral" (todas as colunas)
   const renderTabelaGenerica = (lista: (TimeTabela | TimeGrupo)[]) => (
     <table className="w-full text-sm">
       <thead>
@@ -234,7 +233,6 @@ const CampeonatoDetalhe = () => {
     </table>
   );
 
-  // Tabela compacta, usada nos cards de grupo lado a lado (sem GP/GC, pra sempre caber PTS)
   const renderTabelaCompacta = (lista: (TimeTabela | TimeGrupo)[]) => (
     <table className="w-full text-sm">
       <thead>
@@ -299,7 +297,6 @@ const CampeonatoDetalhe = () => {
       <Header />
       <main className="container mx-auto px-4 py-10 max-w-5xl">
 
-        {/* Voltar */}
         <button
           onClick={() => navigate("/campeonatos")}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
@@ -307,15 +304,14 @@ const CampeonatoDetalhe = () => {
           <ArrowLeft className="w-4 h-4" /> Voltar para Campeonatos
         </button>
 
-        {/* Header do campeonato */}
         {loading ? (
           <div className="animate-pulse h-16 bg-muted rounded-xl mb-8" />
         ) : (
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-4 mb-8 flex-wrap">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-primary" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-[200px]">
               <h1 className="text-3xl font-bold">{campeonato?.nome ?? `Campeonato #${id}`}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${campeonato?.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
@@ -329,7 +325,15 @@ const CampeonatoDetalhe = () => {
               </div>
             </div>
 
-            {/* NOVO: botão de gerenciar grupos, só pra master/presidente e só em campeonatos de Grupos + Mata-Mata */}
+            {temChaveamento && (
+              <button
+                onClick={() => navigate(`/campeonatos/${id}/chaveamento`)}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors shrink-0"
+              >
+                <GitBranch className="w-4 h-4" /> Ver Chaveamento
+              </button>
+            )}
+
             {isAdmin && campeonato?.tipo_formato === "GRUPOS_E_MATA_MATA" && (
               <button
                 onClick={() => navigate(`/admin/campeonatos/${id}/grupos`)}
@@ -341,7 +345,6 @@ const CampeonatoDetalhe = () => {
           </div>
         )}
 
-        {/* Abas principais */}
         <div className="flex gap-1 bg-muted/50 rounded-xl p-1 mb-4 w-fit">
           <button
             onClick={() => setAba("tabela")}
@@ -357,7 +360,6 @@ const CampeonatoDetalhe = () => {
           </button>
         </div>
 
-        {/* Sub-seletor: Por Grupo x Geral (só aparece se o campeonato tiver grupos) */}
         {aba === "tabela" && temGrupos && !loading && (
           <div className="flex gap-1 mb-6 w-fit border rounded-lg p-1 bg-card/60">
             <button
@@ -375,7 +377,6 @@ const CampeonatoDetalhe = () => {
           </div>
         )}
 
-        {/* TABELA DE CLASSIFICAÇÃO */}
         {aba === "tabela" && (
           <>
             {loading ? (
@@ -383,7 +384,6 @@ const CampeonatoDetalhe = () => {
                 {[1,2,3,4].map(i => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}
               </div>
             ) : temGrupos && visaoTabela === "grupos" ? (
-              // MODO GRUPOS: tabela compacta por chave, lado a lado em telas maiores
               <div className="grid gap-6 md:grid-cols-2">
                 {Object.entries(grupos).map(([nomeGrupo, times]) => (
                   <div key={nomeGrupo} className="rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
@@ -415,10 +415,8 @@ const CampeonatoDetalhe = () => {
           </>
         )}
 
-        {/* JOGOS DO CAMPEONATO */}
         {aba === "jogos" && (
           <div className="space-y-6">
-            {/* Próximos */}
             {jogosProximos.length > 0 && (
               <div>
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -426,7 +424,7 @@ const CampeonatoDetalhe = () => {
                 </h2>
                 <div className="space-y-2">
                   {jogosProximos.map(j => {
-                    const fase = nomeFaseDoJogo(j); // NOVO
+                    const fase = nomeFaseDoJogo(j);
                     return (
                       <div key={j.jogo_id} className="rounded-xl border bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between gap-4">
                         <div className="flex-1 text-right">
@@ -434,7 +432,7 @@ const CampeonatoDetalhe = () => {
                           <p className="text-xs text-muted-foreground">Casa</p>
                         </div>
                         <div className="text-center px-4">
-                          {fase && ( // NOVO
+                          {fase && (
                             <span className="inline-block mb-1 bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
                               {fase}
                             </span>
@@ -453,7 +451,6 @@ const CampeonatoDetalhe = () => {
               </div>
             )}
 
-            {/* Finalizados */}
             {jogosFinaliz.length > 0 && (
               <div>
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -461,7 +458,7 @@ const CampeonatoDetalhe = () => {
                 </h2>
                 <div className="space-y-2">
                   {jogosFinaliz.map(j => {
-                    const fase = nomeFaseDoJogo(j); // NOVO
+                    const fase = nomeFaseDoJogo(j);
                     return (
                       <div key={j.jogo_id} className="rounded-xl border bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between gap-4">
                         <div className="flex-1 text-right">
@@ -469,7 +466,7 @@ const CampeonatoDetalhe = () => {
                           <p className="text-xs text-muted-foreground">Casa</p>
                         </div>
                         <div className="text-center px-4 min-w-[80px]">
-                          {fase && ( // NOVO
+                          {fase && (
                             <span className="inline-block mb-1 bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
                               {fase}
                             </span>
