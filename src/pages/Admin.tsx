@@ -6,12 +6,12 @@ import { API_BASE_URL, authFetch } from "@/lib/api";
 import {
   ShieldCheck, Users, Newspaper, RefreshCw, PlusCircle,
   Trash2, Edit3, Save, X, Swords, Calendar, CalendarClock, CheckCircle2, Trophy, MapPin, Layers, Shirt, Phone,
-  ImagePlus, Loader2, KeyRound, Radio, UserRound, Goal, Square, FileText
+  ImagePlus, Loader2, KeyRound, Radio, UserRound, Goal, Square, FileText, UserCog
 } from "lucide-react";
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
-interface Jogo { jogo_id: number; mandante: string; mandante_id: number | null; visitante: string; visitante_id: number | null; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; }
+interface Jogo { jogo_id: number; mandante: string; mandante_id: number | null; visitante: string; visitante_id: number | null; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; arbitro_id: number | null; arbitro_nome?: string | null; }
 interface EventoSumula { minuto: string; tempo: number | null; jogador: string; time: string; tipo: string; }
 interface Sumula { eventos: EventoSumula[]; cartoes: EventoSumula[]; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
@@ -21,6 +21,7 @@ interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: s
 interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
 interface MeuCampeonato { campeonato_id: number; nome: string; role: string; }
 interface PresidenteAtribuido { usuario_id: number; username: string; }
+interface Arbitro { id: number; nome: string; cpf_revelado?: string | null; telefone?: string; status: string; }
 
 const ROLES = ["torcedor", "capitao", "delegado", "olheiro", "presidente", "master"];
 
@@ -52,7 +53,7 @@ const uploadImagemCloudinary = async (arquivo: File): Promise<string> => {
   return data.secure_url as string;
 };
 
-type Aba = "usuarios"|"presidentes"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"jogadores"|"novo_jogador"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato";
+type Aba = "usuarios"|"presidentes"|"campeonatos"|"novo_campeonato"|"jogos"|"novo_jogo"|"times"|"novo_time"|"jogadores"|"novo_jogador"|"materias"|"nova_materia"|"editar_materia"|"estadios"|"novo_estadio"|"contatos"|"novo_contato"|"arbitros"|"novo_arbitro";
 
 // Mensagem padrão quando a sessão expira de vez (falha até na tentativa de refresh)
 const SESSION_EXPIRED_MSG = "Sua sessão expirou. Saia e entre novamente no Admin para continuar.";
@@ -178,6 +179,7 @@ const Admin = () => {
   const [campeonatos, setCampeonatos] = useState<Campeonato[]>([]);
   const [estadios, setEstadios] = useState<Estadio[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
+  const [arbitros, setArbitros] = useState<Arbitro[]>([]);
   const [meusCampeonatos, setMeusCampeonatos] = useState<MeuCampeonato[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingMaterias, setLoadingMaterias] = useState(true);
@@ -185,6 +187,7 @@ const Admin = () => {
   const [loadingTimes, setLoadingTimes] = useState(true);
   const [loadingEstadios, setLoadingEstadios] = useState(true);
   const [loadingContatos, setLoadingContatos] = useState(true);
+  const [loadingArbitros, setLoadingArbitros] = useState(true);
   const [aba, setAba] = useState<Aba>(isMaster ? "usuarios" : "campeonatos");
   const [salvando, setSalvando] = useState<number | null>(null);
 
@@ -210,7 +213,7 @@ const Admin = () => {
   const [msgEditMateria, setMsgEditMateria] = useState("");
 
   // Novo jogo
-  const [novoJogo, setNovoJogo] = useState({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "" });
+  const [novoJogo, setNovoJogo] = useState({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "" });
   const [agendando, setAgendando] = useState(false);
   const [msgJogo, setMsgJogo] = useState("");
 
@@ -280,6 +283,21 @@ const Admin = () => {
   const [contatoEditando, setContatoEditando] = useState<Contato | null>(null);
   const [contatoEdit, setContatoEdit] = useState({ nome: "", telefone: "", papel: "", observacoes: "", campeonato_id: "" });
   const [salvandoContato, setSalvandoContato] = useState(false);
+
+  // Novo árbitro
+  const [novoArbitroForm, setNovoArbitroForm] = useState({ nome: "", cpf: "", telefone: "", data_nascimento: "" });
+  const [criandoArbitro, setCriandoArbitro] = useState(false);
+  const [msgArbitro, setMsgArbitro] = useState("");
+
+  // Editar árbitro
+  const [arbitroEditando, setArbitroEditando] = useState<Arbitro | null>(null);
+  const [arbitroEdit, setArbitroEdit] = useState({ nome: "", telefone: "", ativo: true });
+  const [salvandoArbitro, setSalvandoArbitro] = useState(false);
+
+  // Atribuir/trocar árbitro de um jogo já existente (aba Jogos)
+  const [editandoArbitroJogoId, setEditandoArbitroJogoId] = useState<number | null>(null);
+  const [arbitroSelecionadoParaJogo, setArbitroSelecionadoParaJogo] = useState<Record<number, string>>({});
+  const [salvandoArbitroJogo, setSalvandoArbitroJogo] = useState<number | null>(null);
 
   // Placar rápido (finalizar)
   const [placar, setPlacar] = useState<Record<number, { m: string; v: string }>>({});
@@ -359,6 +377,10 @@ const Admin = () => {
   const fetchCampeonatos = async () => { const res = await fetch(`${API_BASE_URL}/api/campeonatos`); if (res.ok) setCampeonatos(await res.json()); };
   const fetchEstadios = async () => { setLoadingEstadios(true); try { const res = await fetch(`${API_BASE_URL}/api/estadios`); if (res.ok) setEstadios(await res.json()); } finally { setLoadingEstadios(false); } };
   const fetchContatos = async () => { setLoadingContatos(true); try { const res = await authFetch(`${API_BASE_URL}/api/contatos`); if (res.ok) setContatos(await res.json()); } finally { setLoadingContatos(false); } };
+  // Árbitros são recurso global gerenciado só pela equipe master (mesma regra
+  // de times/estádios) — por isso authFetch (precisa de token) e só é
+  // buscado quando isMaster, já que o backend retorna 403 pra qualquer outro role.
+  const fetchArbitros = async () => { setLoadingArbitros(true); try { const res = await authFetch(`${API_BASE_URL}/api/arbitros`); if (res.ok) setArbitros(await res.json()); } finally { setLoadingArbitros(false); } };
   const fetchMeusCampeonatos = async () => {
     try {
       const res = await authFetch(`${API_BASE_URL}/api/meus-campeonatos-admin`);
@@ -369,6 +391,7 @@ const Admin = () => {
   useEffect(() => {
     if (verificandoAcesso) return;
     fetchUsuarios(); fetchMaterias(); fetchJogos(); fetchTimes(); fetchCampeonatos(); fetchEstadios(); fetchContatos();
+    if (isMaster) fetchArbitros();
   }, [verificandoAcesso]);
 
   // Campeonatos que o usuário logado pode de fato administrar: master vê todos,
@@ -615,9 +638,10 @@ const Admin = () => {
           time_visitante_id: parseInt(novoJogo.time_visitante_id),
           data_hora: novoJogo.data_hora,
           estadio_id: novoJogo.estadio_id ? parseInt(novoJogo.estadio_id) : null,
+          arbitro_id: novoJogo.arbitro_id ? parseInt(novoJogo.arbitro_id) : null,
         }),
       });
-      if (res.ok) { setMsgJogo("✅ Jogo agendado!"); setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "" }); fetchJogos(); setTimeout(() => setAba("jogos"), 1500); }
+      if (res.ok) { setMsgJogo("✅ Jogo agendado!"); setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "" }); fetchJogos(); setTimeout(() => setAba("jogos"), 1500); }
       else { setMsgJogo(await extrairMensagemErro(res, "Erro ao agendar jogo.")); }
     } catch (err) {
       setMsgJogo("Erro de conexão ao agendar jogo.");
@@ -911,6 +935,85 @@ const Admin = () => {
     }
   };
 
+  // --- ÁRBITROS ---
+
+  const criarArbitro = async () => {
+    if (!novoArbitroForm.nome.trim() || !novoArbitroForm.cpf.trim()) { setMsgArbitro("Preencha nome e CPF."); return; }
+    setCriandoArbitro(true); setMsgArbitro("");
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/arbitros`, {
+        method: "POST",
+        body: JSON.stringify({
+          nome: novoArbitroForm.nome,
+          cpf: novoArbitroForm.cpf,
+          telefone: novoArbitroForm.telefone,
+          data_nascimento: novoArbitroForm.data_nascimento || null,
+        }),
+      });
+      if (res.ok) { setMsgArbitro("✅ Árbitro cadastrado!"); setNovoArbitroForm({ nome: "", cpf: "", telefone: "", data_nascimento: "" }); fetchArbitros(); setTimeout(() => setAba("arbitros"), 1500); }
+      else { setMsgArbitro(await extrairMensagemErro(res, "Erro ao cadastrar árbitro.")); }
+    } catch (err) {
+      setMsgArbitro("Erro de conexão ao cadastrar árbitro.");
+    } finally { setCriandoArbitro(false); }
+  };
+
+  const abrirEdicaoArbitro = (a: Arbitro) => {
+    setArbitroEditando(a);
+    setArbitroEdit({ nome: a.nome, telefone: a.telefone ?? "", ativo: a.status === "Ativo" });
+  };
+
+  const salvarEdicaoArbitro = async () => {
+    if (!arbitroEditando) return;
+    setSalvandoArbitro(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/arbitros/${arbitroEditando.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ nome: arbitroEdit.nome, telefone: arbitroEdit.telefone, ativo: arbitroEdit.ativo }),
+      });
+      if (res.ok) { setArbitroEditando(null); fetchArbitros(); }
+      else { alert(await extrairMensagemErro(res, "Erro ao salvar árbitro.")); }
+    } catch (err) {
+      alert("Erro de conexão ao salvar árbitro.");
+    } finally { setSalvandoArbitro(false); }
+  };
+
+  const deletarArbitro = async (id: number) => {
+    if (!confirm("Remover este árbitro?")) return;
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/arbitros/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setArbitros((prev) => prev.filter((a) => a.id !== id));
+      } else {
+        // Ex: árbitro já escalado em algum jogo — o backend bloqueia a remoção
+        // nesse caso e sugere marcar como inativo em vez de deletar.
+        alert(await extrairMensagemErro(res, "Erro ao remover árbitro."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao remover árbitro.");
+    }
+  };
+
+  // Atribuir/trocar o árbitro de um jogo já cadastrado (aba Jogos)
+  const abrirEdicaoArbitroJogo = (j: Jogo) => {
+    setEditandoArbitroJogoId(j.jogo_id);
+    setArbitroSelecionadoParaJogo((prev) => ({ ...prev, [j.jogo_id]: j.arbitro_id ? String(j.arbitro_id) : "" }));
+  };
+
+  const salvarArbitroJogo = async (jogoId: number) => {
+    setSalvandoArbitroJogo(jogoId);
+    try {
+      const valorSelecionado = arbitroSelecionadoParaJogo[jogoId] ?? "";
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/arbitro`, {
+        method: "PUT",
+        body: JSON.stringify({ arbitro_id: valorSelecionado ? parseInt(valorSelecionado) : null }),
+      });
+      if (res.ok) { setEditandoArbitroJogoId(null); fetchJogos(); }
+      else { alert(await extrairMensagemErro(res, "Erro ao definir árbitro do jogo.")); }
+    } catch (err) {
+      alert("Erro de conexão ao definir árbitro do jogo.");
+    } finally { setSalvandoArbitroJogo(null); }
+  };
+
   const finalizarJogo = async (jogoId: number) => {
     const p = placar[jogoId];
     if (!p || p.m === "" || p.v === "") { alert("Preencha o placar antes de finalizar."); return; }
@@ -1065,6 +1168,8 @@ const Admin = () => {
     ...(isMaster ? [{ key: "novo_jogador" as Aba, label: "Novo Jogador", icon: PlusCircle }] : []),
     { key: "estadios", label: "Estádios", icon: MapPin },
     ...(isMaster ? [{ key: "novo_estadio" as Aba, label: "Novo Estádio", icon: PlusCircle }] : []),
+    ...(isMaster ? [{ key: "arbitros" as Aba, label: "Árbitros", icon: UserCog }] : []),
+    ...(isMaster ? [{ key: "novo_arbitro" as Aba, label: "Novo Árbitro", icon: PlusCircle }] : []),
     { key: "contatos", label: "Contatos", icon: Phone },
     { key: "novo_contato", label: "Novo Contato", icon: PlusCircle },
     { key: "materias", label: "Matérias", icon: Newspaper },
@@ -1105,6 +1210,7 @@ const Admin = () => {
             { icon: Swords, count: jogosPermitidos.length, label: "Jogos" },
             { icon: Shirt, count: times.length, label: "Times" },
             { icon: MapPin, count: estadios.length, label: "Estádios" },
+            ...(isMaster ? [{ icon: UserCog, count: arbitros.length, label: "Árbitros" }] : []),
             { icon: Phone, count: contatos.length, label: "Contatos" },
             { icon: Newspaper, count: materias.length, label: "Matérias" },
           ].map(({ icon: Icon, count, label }) => (
@@ -1335,12 +1441,20 @@ const Admin = () => {
                 <div>
                   <p className="font-medium text-sm">{j.mandante} <span className="text-muted-foreground">vs</span> {j.visitante}</p>
                   <p className="text-xs text-muted-foreground">{j.campeonato} · {j.data_hora}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                    <UserCog className="w-3 h-3" /> {j.arbitro_nome ?? "Sem árbitro definido"}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
                   <button onClick={() => alternarSumulaJogo(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Ver/editar súmula (gols e cartões)">
                     {jogoSumulaAberta === j.jogo_id ? <X className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                   </button>
+                  {isMaster && (
+                    <button onClick={() => editandoArbitroJogoId === j.jogo_id ? setEditandoArbitroJogoId(null) : abrirEdicaoArbitroJogo(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Definir/trocar árbitro">
+                      {editandoArbitroJogoId === j.jogo_id ? <X className="w-4 h-4" /> : <UserCog className="w-4 h-4" />}
+                    </button>
+                  )}
                   <button onClick={() => editando === j.jogo_id ? setEditando(null) : abrirEdicao(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar placar">
                     {editando === j.jogo_id ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                   </button>
@@ -1352,6 +1466,22 @@ const Admin = () => {
                   )}
                 </div>
               </div>
+              {editandoArbitroJogoId === j.jogo_id && (
+                <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                  <UserCog className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <div className="flex-1">
+                    <SeletorBusca
+                      opcoes={[{ id: "", label: "Sem árbitro" }, ...arbitros.map((a) => ({ id: String(a.id), label: a.nome }))]}
+                      valor={arbitroSelecionadoParaJogo[j.jogo_id] ?? ""}
+                      onSelecionar={(idSel) => setArbitroSelecionadoParaJogo((prev) => ({ ...prev, [j.jogo_id]: idSel }))}
+                      placeholder="Buscar árbitro..."
+                    />
+                  </div>
+                  <button onClick={() => salvarArbitroJogo(j.jogo_id)} disabled={salvandoArbitroJogo === j.jogo_id} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex-shrink-0">
+                    {salvandoArbitroJogo === j.jogo_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                  </button>
+                </div>
+              )}
               {jogoSumulaAberta === j.jogo_id && (
                 <div className="mt-2 p-3 bg-muted/30 rounded-xl border space-y-3">
                   {carregandoSumula === j.jogo_id ? (
@@ -1509,10 +1639,21 @@ const Admin = () => {
                   <option value="">Sem estádio</option>{estadios.map((e) => <option key={e.id} value={e.id}>{e.apelido || e.nome_oficial}</option>)}
                 </select>
               </div>
+              {isMaster && (
+                <div><label className="text-sm font-medium mb-1.5 block">Árbitro (opcional)</label>
+                  <SeletorBusca
+                    opcoes={arbitros.map((a) => ({ id: String(a.id), label: a.nome }))}
+                    valor={novoJogo.arbitro_id}
+                    onSelecionar={(idSel) => setNovoJogo((p) => ({ ...p, arbitro_id: idSel }))}
+                    placeholder="Buscar árbitro..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Se o árbitro já estiver escalado em outro jogo próximo desse horário, o agendamento é bloqueado.</p>
+                </div>
+              )}
               {msgJogo && <p className={`text-sm font-medium ${msgJogo.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgJogo}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={agendarJogo} disabled={agendando} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{agendando ? "Agendando..." : "Agendar Jogo"}</button>
-                <button onClick={() => setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+                <button onClick={() => setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
@@ -1802,6 +1943,81 @@ const Admin = () => {
               <div className="flex gap-3 pt-2">
                 <button onClick={criarEstadio} disabled={criandoEstadio} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoEstadio ? "Salvando..." : "Cadastrar Estádio"}</button>
                 <button onClick={() => setNovoEstadio({ nome_oficial: "", apelido: "", rua: "", numero: "", bairro: "", cidade: "Diadema", estado: "SP", cep: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ABA: ÁRBITROS (master-only) */}
+        {aba === "arbitros" && isMaster && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="font-bold text-lg">Árbitros</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setAba("novo_arbitro")} className="flex items-center gap-1.5 text-sm text-primary font-medium hover:opacity-80"><PlusCircle className="w-4 h-4" /> Novo</button>
+                <button onClick={fetchArbitros} className="text-muted-foreground hover:text-foreground ml-2"><RefreshCw className="w-4 h-4" /></button>
+              </div>
+            </div>
+            {loadingArbitros ? <div className="p-8 text-center text-muted-foreground">Carregando...</div> :
+              arbitros.length === 0 ? <div className="p-8 text-center text-muted-foreground">Nenhum árbitro cadastrado.</div> : (
+              <div className="divide-y">
+                {arbitros.map((a) => (
+                  <div key={a.id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
+                    {arbitroEditando?.id === a.id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={arbitroEdit.nome} onChange={(ev) => setArbitroEdit(p => ({ ...p, nome: ev.target.value }))} placeholder="Nome" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          <input value={arbitroEdit.telefone} onChange={(ev) => setArbitroEdit(p => ({ ...p, telefone: ev.target.value }))} placeholder="Telefone" className="px-3 py-1.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        </div>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer w-fit">
+                          <input type="checkbox" checked={arbitroEdit.ativo} onChange={(ev) => setArbitroEdit(p => ({ ...p, ativo: ev.target.checked }))} className="rounded" />
+                          Ativo
+                        </label>
+                        <div className="flex gap-2">
+                          <button onClick={salvarEdicaoArbitro} disabled={salvandoArbitro} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+                            {salvandoArbitro ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                          </button>
+                          <button onClick={() => setArbitroEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{a.nome[0]}</div>
+                          <div>
+                            <p className="font-medium text-sm">{a.nome}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{a.telefone}{a.telefone && a.cpf_revelado ? " · " : ""}{a.cpf_revelado}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.status === "Ativo" ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{a.status}</span>
+                          <button onClick={() => abrirEdicaoArbitro(a)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar árbitro"><Edit3 className="w-4 h-4" /></button>
+                          <button onClick={() => deletarArbitro(a.id)} className="text-destructive hover:opacity-70" title="Remover árbitro"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA: NOVO ÁRBITRO (master-only: árbitros são recurso global) */}
+        {aba === "novo_arbitro" && isMaster && (
+          <div className="rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm p-6 max-w-2xl mx-auto">
+            <h2 className="font-bold text-lg mb-6 flex items-center gap-2"><UserCog className="w-5 h-5 text-primary" /> Cadastrar Novo Árbitro</h2>
+            <div className="space-y-4">
+              <div><label className="text-sm font-medium mb-1.5 block">Nome *</label><input type="text" value={novoArbitroForm.nome} onChange={(e) => setNovoArbitroForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: João da Apito" className={inputClass} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-sm font-medium mb-1.5 block">CPF *</label><input type="text" value={novoArbitroForm.cpf} onChange={(e) => setNovoArbitroForm(p => ({ ...p, cpf: e.target.value }))} placeholder="000.000.000-00" className={inputClass} /></div>
+                <div><label className="text-sm font-medium mb-1.5 block">Data de Nascimento</label><input type="date" value={novoArbitroForm.data_nascimento} onChange={(e) => setNovoArbitroForm(p => ({ ...p, data_nascimento: e.target.value }))} className={inputClass} /></div>
+              </div>
+              <div><label className="text-sm font-medium mb-1.5 block">Telefone</label><input type="text" value={novoArbitroForm.telefone} onChange={(e) => setNovoArbitroForm(p => ({ ...p, telefone: e.target.value }))} placeholder="Ex: 11999999999" className={inputClass} /></div>
+              {msgArbitro && <p className={`text-sm font-medium ${msgArbitro.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgArbitro}</p>}
+              <div className="flex gap-3 pt-2">
+                <button onClick={criarArbitro} disabled={criandoArbitro} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{criandoArbitro ? "Salvando..." : "Cadastrar Árbitro"}</button>
+                <button onClick={() => { setNovoArbitroForm({ nome: "", cpf: "", telefone: "", data_nascimento: "" }); setMsgArbitro(""); }} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
