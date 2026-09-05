@@ -6,11 +6,20 @@ import { API_BASE_URL } from "@/lib/api";
 interface Jogo {
   jogo_id: number;
   mandante: string;
+  mandante_logo?: string | null;
   visitante: string;
+  visitante_logo?: string | null;
   campeonato: string;
   data_hora: string;
   status: string;
+  gols_mandante: number;
+  gols_visitante: number;
 }
+
+// Estados "ao vivo" da máquina de estados da partida (Agendado -> 1º Tempo ->
+// Intervalo -> 2º Tempo -> Finalizado). "Em andamento" nunca é setado pelo
+// backend — era um valor legado que nunca bateu com os status reais.
+const STATUS_AO_VIVO = ["1º Tempo", "Intervalo", "2º Tempo"];
 
 const MatchesList = () => {
   const [jogos, setJogos] = useState<Jogo[]>([]);
@@ -40,7 +49,7 @@ const MatchesList = () => {
     fetchJogos();
   }, []);
 
-  const jogosAoVivo = jogos.filter((j) => j.status === "Em andamento");
+  const jogosAoVivo = jogos.filter((j) => STATUS_AO_VIVO.includes(j.status));
   const jogosProximos = jogos.filter((j) => j.status === "Agendado");
   const jogosFinaliz = jogos.filter((j) => j.status === "Finalizado");
 
@@ -87,8 +96,11 @@ const MatchesList = () => {
                 {jogosAoVivo.map((j) => (
                   <MatchCard
                     key={j.jogo_id}
+                    jogoId={j.jogo_id}
                     homeTeam={j.mandante}
+                    homeTeamLogo={j.mandante_logo}
                     awayTeam={j.visitante}
+                    awayTeamLogo={j.visitante_logo}
                     stadium=""
                     time="Ao vivo"
                     championship={j.campeonato}
@@ -107,8 +119,11 @@ const MatchesList = () => {
                 {jogosProximos.map((j) => (
                   <MatchCard
                     key={j.jogo_id}
+                    jogoId={j.jogo_id}
                     homeTeam={j.mandante}
+                    homeTeamLogo={j.mandante_logo}
                     awayTeam={j.visitante}
+                    awayTeamLogo={j.visitante_logo}
                     stadium=""
                     time={j.data_hora}
                     championship={j.campeonato}
@@ -127,12 +142,16 @@ const MatchesList = () => {
                 {jogosFinaliz.map((j) => (
                   <MatchCard
                     key={j.jogo_id}
+                    jogoId={j.jogo_id}
                     homeTeam={j.mandante}
+                    homeTeamLogo={j.mandante_logo}
                     awayTeam={j.visitante}
+                    awayTeamLogo={j.visitante_logo}
                     stadium=""
                     time={j.data_hora}
                     championship={j.campeonato}
-                    status="upcoming"
+                    status="finished"
+                    score={`${j.gols_mandante} - ${j.gols_visitante}`}
                   />
                 ))}
               </div>
