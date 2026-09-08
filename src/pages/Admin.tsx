@@ -1380,6 +1380,17 @@ const Admin = () => {
                           >
                             <Layers className="w-3.5 h-3.5" /> Grupos
                           </button>
+                          {c.tipo_formato === "GRUPOS_E_MATA_MATA" && (
+                            <a
+                              href={`${API_BASE_URL}/api/campeonatos/${c.campeonato_id}/ata-encerramento`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
+                              title="Gerar Ata de Encerramento da Fase de Grupos (PDF)"
+                            >
+                              <FileText className="w-3.5 h-3.5" /> Ata
+                            </a>
+                          )}
                           <button onClick={() => abrirEdicaoCamp(c)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar campeonato"><Edit3 className="w-4 h-4" /></button>
                         </div>
                       </div>
