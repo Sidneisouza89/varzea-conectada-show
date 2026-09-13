@@ -14,6 +14,9 @@ interface MatchCardProps {
   championship: string;
   status: 'live' | 'upcoming' | 'finished';
   score?: string;
+  // Opcional: só é passado quando o jogo é de mata-mata e empatou no tempo
+  // normal — ex: "3 x 4". Quando presente, aparece abaixo do placar.
+  penaltyScore?: string;
 }
 
 const TeamAvatar = ({ name, logo }: { name: string; logo?: string | null }) => (
@@ -36,7 +39,8 @@ const MatchCard = ({
   time, 
   championship,
   status,
-  score 
+  score,
+  penaltyScore
 }: MatchCardProps) => {
   const navigate = useNavigate();
   const statusConfig = {
@@ -72,6 +76,11 @@ const MatchCard = ({
           {score ? (
             <div className="mx-4 rounded-lg bg-muted px-4 py-2">
               <div className="text-center text-2xl font-bold">{score}</div>
+              {penaltyScore && (
+                <div className="text-center text-xs font-semibold text-primary mt-0.5">
+                  pên. {penaltyScore}
+                </div>
+              )}
             </div>
           ) : (
             <div className="mx-4 text-muted-foreground font-bold text-xl">VS</div>

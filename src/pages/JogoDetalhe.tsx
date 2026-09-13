@@ -23,6 +23,8 @@ interface Sumula {
     data_hora: string;
     status: string;
     placar_final: string;
+    penaltis_mandante?: number | null;
+    penaltis_visitante?: number | null;
   };
   local_e_equipe: {
     estadio: string;
@@ -93,6 +95,7 @@ const JogoDetalhe = () => {
 
   const [gols_mandante, gols_visitante] = sumula?.partida.placar_final?.split(" x ").map(Number) ?? [0, 0];
   const status = sumula ? statusConfig[sumula.partida.status] ?? { label: sumula.partida.status, color: "bg-muted text-muted-foreground" } : null;
+  const temPenaltis = sumula?.partida.penaltis_mandante != null && sumula?.partida.penaltis_visitante != null;
 
   const handleCompartilhar = async () => {
     if (!sumula) return;
@@ -177,6 +180,11 @@ const JogoDetalhe = () => {
                       <p className="text-4xl font-bold tabular-nums">
                         {gols_mandante} <span className="text-muted-foreground text-2xl">x</span> {gols_visitante}
                       </p>
+                      {temPenaltis && (
+                        <p className="text-sm font-semibold text-primary mt-1 tabular-nums">
+                          pên. {sumula.partida.penaltis_mandante} x {sumula.partida.penaltis_visitante}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="bg-muted rounded-2xl px-6 py-3">

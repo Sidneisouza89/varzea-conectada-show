@@ -11,7 +11,7 @@ import {
 
 interface Usuario { id: number; username: string; role: string; is_active: boolean; }
 interface Materia { materia_id: number; titulo: string; conteudo: string; data_publicacao: string; imagem_url?: string | null; curtidas?: number; }
-interface Jogo { jogo_id: number; mandante: string; mandante_id: number | null; visitante: string; visitante_id: number | null; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; arbitro_id: number | null; arbitro_nome?: string | null; }
+interface Jogo { jogo_id: number; mandante: string; mandante_id: number | null; visitante: string; visitante_id: number | null; campeonato: string; campeonato_id: number | null; data_hora: string; status: string; gols_mandante: number; gols_visitante: number; penaltis_mandante?: number | null; penaltis_visitante?: number | null; confronto_id?: number | null; arbitro_id: number | null; arbitro_nome?: string | null; }
 interface EventoSumula { minuto: string; tempo: number | null; jogador: string; time: string; tipo: string; }
 interface Sumula { eventos: EventoSumula[]; cartoes: EventoSumula[]; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
@@ -305,7 +305,7 @@ const Admin = () => {
 
   // Editar placar
   const [editando, setEditando] = useState<number | null>(null);
-  const [placarEdit, setPlacarEdit] = useState<{ m: string; v: string }>({ m: "", v: "" });
+  const [placarEdit, setPlacarEdit] = useState<{ m: string; v: string; pm: string; pv: string }>({ m: "", v: "", pm: "", pv: "" });
   const [salvandoEdit, setSalvandoEdit] = useState(false);
 
   // Reagendar jogo (RF-08)
@@ -1031,13 +1031,24 @@ const Admin = () => {
     } finally { setFinalizando(null); }
   };
 
-  const abrirEdicao = (j: Jogo) => { setEditando(j.jogo_id); setPlacarEdit({ m: String(j.gols_mandante ?? 0), v: String(j.gols_visitante ?? 0) }); };
+  const abrirEdicao = (j: Jogo) => {
+    setEditando(j.jogo_id);
+    setPlacarEdit({
+      m: String(j.gols_mandante ?? 0),
+      v: String(j.gols_visitante ?? 0),
+      pm: j.penaltis_mandante != null ? String(j.penaltis_mandante) : "",
+      pv: j.penaltis_visitante != null ? String(j.penaltis_visitante) : "",
+    });
+  };
 
   const salvarEdicao = async (jogoId: number) => {
     if (placarEdit.m === "" || placarEdit.v === "") { alert("Preencha os dois placares."); return; }
     setSalvandoEdit(true);
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/editar-placar`, { method: "POST", body: JSON.stringify({ gols_mandante: parseInt(placarEdit.m), gols_visitante: parseInt(placarEdit.v) }) });
+      const body: Record<string, number> = { gols_mandante: parseInt(placarEdit.m), gols_visitante: parseInt(placarEdit.v) };
+      if (placarEdit.pm !== "") body.penaltis_mandante = parseInt(placarEdit.pm);
+      if (placarEdit.pv !== "") body.penaltis_visitante = parseInt(placarEdit.pv);
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/editar-placar`, { method: "POST", body: JSON.stringify(body) });
       if (res.ok) { setEditando(null); fetchJogos(); }
       else { alert(await extrairMensagemErro(res, "Erro ao salvar placar.")); }
     } catch (err) {
@@ -1452,6 +1463,14 @@ const Admin = () => {
                 <div>
                   <p className="font-medium text-sm">{j.mandante} <span className="text-muted-foreground">vs</span> {j.visitante}</p>
                   <p className="text-xs text-muted-foreground">{j.campeonato} · {j.data_hora}</p>
+                  {j.status === "Finalizado" && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Placar: {j.gols_mandante} x {j.gols_visitante}
+                      {j.penaltis_mandante != null && j.penaltis_visitante != null && (
+                        <span className="text-primary font-medium"> (pên. {j.penaltis_mandante} x {j.penaltis_visitante})</span>
+                      )}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                     <UserCog className="w-3 h-3" /> {j.arbitro_nome ?? "Sem árbitro definido"}
                   </p>
@@ -1551,17 +1570,29 @@ const Admin = () => {
                 </div>
               )}
               {editando === j.jogo_id && (
-                <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20">
-                  <Edit3 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
-                  <input type="number" min="0" value={placarEdit.m} onChange={(e) => setPlacarEdit(p => ({ ...p, m: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                  <span className="text-muted-foreground font-bold">×</span>
-                  <input type="number" min="0" value={placarEdit.v} onChange={(e) => setPlacarEdit(p => ({ ...p, v: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
-                  <button onClick={() => salvarEdicao(j.jogo_id)} disabled={salvandoEdit} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
-                    {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
-                  </button>
-                  <button onClick={() => setEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
+                <div className="mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Edit3 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.mandante}</span>
+                    <input type="number" min="0" value={placarEdit.m} onChange={(e) => setPlacarEdit(p => ({ ...p, m: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <span className="text-muted-foreground font-bold">×</span>
+                    <input type="number" min="0" value={placarEdit.v} onChange={(e) => setPlacarEdit(p => ({ ...p, v: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <span className="text-xs text-muted-foreground truncate max-w-[80px]">{j.visitante}</span>
+                  </div>
+                  {placarEdit.m !== "" && placarEdit.v !== "" && placarEdit.m === placarEdit.v && (
+                    <div className="flex items-center gap-2 pl-5">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">Pênaltis (só se for mata-mata empatado):</span>
+                      <input type="number" min="0" placeholder="—" value={placarEdit.pm} onChange={(e) => setPlacarEdit(p => ({ ...p, pm: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      <span className="text-muted-foreground font-bold text-xs">×</span>
+                      <input type="number" min="0" placeholder="—" value={placarEdit.pv} onChange={(e) => setPlacarEdit(p => ({ ...p, pv: e.target.value }))} className="w-12 text-center border rounded-lg px-2 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 pl-5">
+                    <button onClick={() => salvarEdicao(j.jogo_id)} disabled={salvandoEdit} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+                      {salvandoEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                    </button>
+                    <button onClick={() => setEditando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
+                  </div>
                 </div>
               )}
               {reagendando === j.jogo_id && (
