@@ -17,7 +17,7 @@ interface Sumula { eventos: EventoSumula[]; cartoes: EventoSumula[]; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
 interface Jogador { jogador_id: number; nome: string; posicao?: string; foto_url?: string | null; cpf_revelado?: string; }
 interface TimeVinculado { time_id: number; nome_oficial: string; }
-interface InscricaoCampeonato { campeonato_id: number; campeonato_nome: string | null; time_id: number; time_nome: string | null; }
+interface InscricaoCampeonato { campeonato_id: number; campeonato_nome: string | null; time_id: number; time_nome: string | null; numero_camisa?: number | null; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
 interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
@@ -266,6 +266,9 @@ const Admin = () => {
   const [novaInscricaoTimeId, setNovaInscricaoTimeId] = useState("");
   const [salvandoInscricao, setSalvandoInscricao] = useState<number | null>(null);
   const [novoVinculoTimeId, setNovoVinculoTimeId] = useState("");
+  const [editandoNumeroInscricaoCampId, setEditandoNumeroInscricaoCampId] = useState<number | null>(null);
+  const [numeroInscricaoInputValor, setNumeroInscricaoInputValor] = useState("");
+  const [salvandoNumeroInscricao, setSalvandoNumeroInscricao] = useState<number | null>(null);
 
   // Novo jogador
   const [novoJogadorForm, setNovoJogadorForm] = useState({ nome: "", time_id: "", posicao: "", cpf: "", data_nascimento: "", foto_url: "" });
@@ -841,6 +844,52 @@ const Admin = () => {
     } catch (err) {
       alert("Erro de conexão ao vincular jogador ao time.");
     } finally { setSalvandoInscricao(null); }
+  };
+
+  const abrirEdicaoNumeroInscricao = (insc: InscricaoCampeonato) => {
+    setEditandoNumeroInscricaoCampId(insc.campeonato_id);
+    setNumeroInscricaoInputValor(insc.numero_camisa != null ? String(insc.numero_camisa) : "");
+  };
+
+  const salvarNumeroInscricao = async (jogadorId: number, timeId: number, campeonatoId: number) => {
+    if (!numeroInscricaoInputValor) return;
+    setSalvandoNumeroInscricao(campeonatoId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/camisa`, {
+        method: "POST",
+        body: JSON.stringify({ time_id: timeId, campeonato_id: campeonatoId, numero_camisa: parseInt(numeroInscricaoInputValor) }),
+      });
+      if (res.ok) {
+        setEditandoNumeroInscricaoCampId(null);
+        fetchInscricoesJogador(jogadorId);
+        // Se esse for o time+campeonato atualmente selecionado lá em cima, atualiza também aquela visão.
+        if (String(timeId) === timeSelecionadoJogadores && String(campeonatoId) === campeonatoSelecionadoJogadores) {
+          fetchNumerosCamisa(timeSelecionadoJogadores, campeonatoSelecionadoJogadores);
+        }
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao salvar número de camisa."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao salvar número de camisa.");
+    } finally { setSalvandoNumeroInscricao(null); }
+  };
+
+  const removerNumeroInscricao = async (jogadorId: number, timeId: number, campeonatoId: number) => {
+    if (!confirm("Remover o número de camisa desse jogador nesse time/campeonato?")) return;
+    setSalvandoNumeroInscricao(campeonatoId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/camisa?time_id=${timeId}&campeonato_id=${campeonatoId}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchInscricoesJogador(jogadorId);
+        if (String(timeId) === timeSelecionadoJogadores && String(campeonatoId) === campeonatoSelecionadoJogadores) {
+          fetchNumerosCamisa(timeSelecionadoJogadores, campeonatoSelecionadoJogadores);
+        }
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao remover número de camisa."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao remover número de camisa.");
+    } finally { setSalvandoNumeroInscricao(null); }
   };
 
   const abrirPainelInscricoes = (jogadorId: number) => {
@@ -2047,14 +2096,32 @@ const Admin = () => {
                         ) : (
                           <div className="space-y-1.5">
                             {inscricoesPorJogador[j.jogador_id].map((insc) => (
-                              <div key={insc.campeonato_id} className="flex items-center justify-between bg-background rounded-lg px-3 py-2 text-xs">
-                                <span>
+                              <div key={insc.campeonato_id} className="flex items-center justify-between bg-background rounded-lg px-3 py-2 text-xs gap-2">
+                                <span className="min-w-0 truncate">
                                   <span className="font-medium">{insc.campeonato_nome}</span>
                                   <span className="text-muted-foreground"> → {insc.time_nome}</span>
                                 </span>
-                                <button onClick={() => removerInscricao(j.jogador_id, insc.campeonato_id)} disabled={salvandoInscricao === j.jogador_id} className="text-destructive hover:opacity-70 disabled:opacity-50" title="Remover inscrição">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {editandoNumeroInscricaoCampId === insc.campeonato_id ? (
+                                    <div className="flex items-center gap-1 bg-muted/50 rounded-lg pl-1.5 pr-0.5 py-0.5">
+                                      <input type="number" min="0" max="999" autoFocus value={numeroInscricaoInputValor} onChange={(e) => setNumeroInscricaoInputValor(e.target.value)}
+                                        className="w-12 text-center border rounded px-1 py-0.5 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                                      <button onClick={() => salvarNumeroInscricao(j.jogador_id, insc.time_id, insc.campeonato_id)} disabled={!numeroInscricaoInputValor || salvandoNumeroInscricao === insc.campeonato_id} className="text-primary hover:opacity-70 disabled:opacity-50" title="Salvar número">
+                                        {salvandoNumeroInscricao === insc.campeonato_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                      </button>
+                                      <button onClick={() => setEditandoNumeroInscricaoCampId(null)} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="w-3 h-3" /></button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => abrirEdicaoNumeroInscricao(insc)}
+                                      className="flex items-center justify-center w-6 h-6 rounded-full border-2 border-primary/30 text-primary text-[10px] font-bold hover:bg-primary/10 transition-colors flex-shrink-0"
+                                      title="Editar número de camisa nesse time/campeonato">
+                                      {insc.numero_camisa ?? "+"}
+                                    </button>
+                                  )}
+                                  <button onClick={() => removerInscricao(j.jogador_id, insc.campeonato_id)} disabled={salvandoInscricao === j.jogador_id} className="text-destructive hover:opacity-70 disabled:opacity-50" title="Remover inscrição">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
