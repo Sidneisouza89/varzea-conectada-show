@@ -755,6 +755,7 @@ const Admin = () => {
   };
 
   const abrirEdicaoNumero = (jogadorId: number) => {
+    setPainelInscricaoAberto((atual) => (atual === jogadorId ? null : atual)); // fecha o painel de multi-time desse jogador, se estiver aberto — evita os dois empilhados na mesma linha
     setEditandoNumeroJogadorId(jogadorId);
     setNumeroInputValor(numerosPorJogador[jogadorId] != null ? String(numerosPorJogador[jogadorId]) : "");
   };
@@ -824,6 +825,7 @@ const Admin = () => {
 
   const abrirPainelInscricoes = (jogadorId: number) => {
     if (painelInscricaoAberto === jogadorId) { setPainelInscricaoAberto(null); return; }
+    setEditandoNumeroJogadorId((atual) => (atual === jogadorId ? null : atual)); // fecha a edição de camisa desse jogador, se estiver aberta — mesmo motivo acima
     setPainelInscricaoAberto(jogadorId);
     setNovaInscricaoCampeonatoId("");
     // O time atual (aba selecionada) já é um candidato natural — pré-seleciona
@@ -1955,7 +1957,8 @@ const Admin = () => {
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {campeonatoSelecionadoJogadores && (
                             editandoNumeroJogadorId === j.jogador_id ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 bg-muted/50 rounded-lg pl-2 pr-1 py-1">
+                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Camisa</span>
                                 <input type="number" min="0" max="999" autoFocus value={numeroInputValor} onChange={(e) => setNumeroInputValor(e.target.value)}
                                   className="w-14 text-center border rounded-lg px-1 py-1 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
                                 <button onClick={() => salvarNumeroCamisa(j.jogador_id)} disabled={!numeroInputValor || salvandoNumero === j.jogador_id} className="text-primary hover:opacity-70 disabled:opacity-50" title="Salvar número">
