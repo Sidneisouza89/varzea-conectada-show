@@ -16,6 +16,8 @@ interface EventoSumula { minuto: string; tempo: number | null; jogador: string; 
 interface Sumula { eventos: EventoSumula[]; cartoes: EventoSumula[]; }
 interface Time { id: number; nome_oficial: string; apelido?: string; regiao?: string; logo_url?: string | null; }
 interface Jogador { jogador_id: number; nome: string; posicao?: string; foto_url?: string | null; cpf_revelado?: string; }
+interface TimeVinculado { time_id: number; nome_oficial: string; }
+interface InscricaoCampeonato { campeonato_id: number; campeonato_nome: string | null; time_id: number; time_nome: string | null; }
 interface Campeonato { campeonato_id: number; nome: string; tipo_formato: string; genero: string; ativo: boolean; }
 interface Estadio { id: number; nome_oficial: string; apelido: string; bairro: string; cidade: string; estado: string; }
 interface Contato { contato_id: number; nome: string; telefone: string; papel: string; observacoes?: string; campeonato_id: number; campeonato_nome?: string; }
@@ -213,7 +215,7 @@ const Admin = () => {
   const [msgEditMateria, setMsgEditMateria] = useState("");
 
   // Novo jogo
-  const [novoJogo, setNovoJogo] = useState({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "" });
+  const [novoJogo, setNovoJogo] = useState({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "", adiado: false });
   const [agendando, setAgendando] = useState(false);
   const [msgJogo, setMsgJogo] = useState("");
 
@@ -251,6 +253,18 @@ const Admin = () => {
   const [editandoNumeroJogadorId, setEditandoNumeroJogadorId] = useState<number | null>(null);
   const [numeroInputValor, setNumeroInputValor] = useState("");
   const [salvandoNumero, setSalvandoNumero] = useState<number | null>(null);
+
+  // Inscrição de jogador em campeonato (multi-time sistêmico) — qual time
+  // ele representa em qual campeonato. Um painel por vez, igual ao padrão
+  // do número de camisa acima.
+  const [painelInscricaoAberto, setPainelInscricaoAberto] = useState<number | null>(null);
+  const [inscricoesPorJogador, setInscricoesPorJogador] = useState<Record<number, InscricaoCampeonato[]>>({});
+  const [carregandoInscricoes, setCarregandoInscricoes] = useState<number | null>(null);
+  const [timesVinculadosPorJogador, setTimesVinculadosPorJogador] = useState<Record<number, TimeVinculado[]>>({});
+  const [carregandoTimesVinculados, setCarregandoTimesVinculados] = useState<number | null>(null);
+  const [novaInscricaoCampeonatoId, setNovaInscricaoCampeonatoId] = useState("");
+  const [novaInscricaoTimeId, setNovaInscricaoTimeId] = useState("");
+  const [salvandoInscricao, setSalvandoInscricao] = useState<number | null>(null);
 
   // Novo jogador
   const [novoJogadorForm, setNovoJogadorForm] = useState({ nome: "", time_id: "", posicao: "", cpf: "", data_nascimento: "", foto_url: "" });
@@ -626,7 +640,8 @@ const Admin = () => {
   };
 
   const agendarJogo = async () => {
-    if (!novoJogo.time_mandante_id || !novoJogo.time_visitante_id || !novoJogo.data_hora) { setMsgJogo("Preencha mandante, visitante e data/hora."); return; }
+    if (!novoJogo.time_mandante_id || !novoJogo.time_visitante_id) { setMsgJogo("Preencha mandante e visitante."); return; }
+    if (!novoJogo.adiado && !novoJogo.data_hora) { setMsgJogo("Preencha a data/hora, ou marque 'Adiado / sem data ainda'."); return; }
     if (novoJogo.time_mandante_id === novoJogo.time_visitante_id) { setMsgJogo("Mandante e visitante não podem ser o mesmo time."); return; }
     setAgendando(true); setMsgJogo("");
     try {
@@ -636,16 +651,28 @@ const Admin = () => {
           campeonato_id: novoJogo.campeonato_id ? parseInt(novoJogo.campeonato_id) : null,
           time_mandante_id: parseInt(novoJogo.time_mandante_id),
           time_visitante_id: parseInt(novoJogo.time_visitante_id),
-          data_hora: novoJogo.data_hora,
+          data_hora: novoJogo.adiado ? null : novoJogo.data_hora,
           estadio_id: novoJogo.estadio_id ? parseInt(novoJogo.estadio_id) : null,
           arbitro_id: novoJogo.arbitro_id ? parseInt(novoJogo.arbitro_id) : null,
         }),
       });
-      if (res.ok) { setMsgJogo("✅ Jogo agendado!"); setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "" }); fetchJogos(); setTimeout(() => setAba("jogos"), 1500); }
+      if (res.ok) { setMsgJogo("✅ Jogo agendado!"); setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "", adiado: false }); fetchJogos(); setTimeout(() => setAba("jogos"), 1500); }
       else { setMsgJogo(await extrairMensagemErro(res, "Erro ao agendar jogo.")); }
     } catch (err) {
       setMsgJogo("Erro de conexão ao agendar jogo.");
     } finally { setAgendando(false); }
+  };
+
+  const marcarComoAdiado = async (jogoId: number) => {
+    if (!confirm("Marcar este jogo como Adiado? A data atual será removida (fica 'A definir') até você reagendar com uma nova data.")) return;
+    setSalvandoReagendamento(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogos/${jogoId}/marcar-adiado`, { method: "POST" });
+      if (res.ok) { setReagendando(null); fetchJogos(); }
+      else { alert(await extrairMensagemErro(res, "Erro ao marcar jogo como adiado.")); }
+    } catch (err) {
+      alert("Erro de conexão ao marcar jogo como adiado.");
+    } finally { setSalvandoReagendamento(false); }
   };
 
   const criarCampeonato = async () => {
@@ -769,6 +796,78 @@ const Admin = () => {
     } catch (err) {
       alert("Erro de conexão ao remover número de camisa.");
     } finally { setSalvandoNumero(null); }
+  };
+
+  // --- INSCRIÇÃO EM CAMPEONATO (multi-time sistêmico) ---
+
+  const fetchInscricoesJogador = async (jogadorId: number) => {
+    setCarregandoInscricoes(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/inscricoes-campeonatos`);
+      if (res.ok) {
+        const data = await res.json();
+        setInscricoesPorJogador((prev) => ({ ...prev, [jogadorId]: data }));
+      }
+    } finally { setCarregandoInscricoes(null); }
+  };
+
+  const fetchTimesVinculadosJogador = async (jogadorId: number) => {
+    setCarregandoTimesVinculados(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/times`);
+      if (res.ok) {
+        const data = await res.json();
+        setTimesVinculadosPorJogador((prev) => ({ ...prev, [jogadorId]: data }));
+      }
+    } finally { setCarregandoTimesVinculados(null); }
+  };
+
+  const abrirPainelInscricoes = (jogadorId: number) => {
+    if (painelInscricaoAberto === jogadorId) { setPainelInscricaoAberto(null); return; }
+    setPainelInscricaoAberto(jogadorId);
+    setNovaInscricaoCampeonatoId("");
+    // O time atual (aba selecionada) já é um candidato natural — pré-seleciona
+    // pra cobrir o caso comum (inscrever o jogador pelo time que está sendo visto agora).
+    setNovaInscricaoTimeId(timeSelecionadoJogadores || "");
+    if (!inscricoesPorJogador[jogadorId]) fetchInscricoesJogador(jogadorId);
+    if (!timesVinculadosPorJogador[jogadorId]) fetchTimesVinculadosJogador(jogadorId);
+  };
+
+  const adicionarInscricao = async (jogadorId: number) => {
+    if (!novaInscricaoCampeonatoId || !novaInscricaoTimeId) return;
+    setSalvandoInscricao(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/inscrever-campeonato`, {
+        method: "POST",
+        body: JSON.stringify({
+          time_id: parseInt(novaInscricaoTimeId),
+          campeonato_id: parseInt(novaInscricaoCampeonatoId),
+        }),
+      });
+      if (res.ok) {
+        setNovaInscricaoCampeonatoId("");
+        fetchInscricoesJogador(jogadorId);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao inscrever jogador no campeonato."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao inscrever jogador no campeonato.");
+    } finally { setSalvandoInscricao(null); }
+  };
+
+  const removerInscricao = async (jogadorId: number, campeonatoId: number) => {
+    if (!confirm("Remover a inscrição desse jogador nesse campeonato? Ele deixa de aparecer no elenco filtrado por esse campeonato (mas continua vinculado ao time normalmente).")) return;
+    setSalvandoInscricao(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/inscrever-campeonato/${campeonatoId}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchInscricoesJogador(jogadorId);
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao remover inscrição."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao remover inscrição.");
+    } finally { setSalvandoInscricao(null); }
   };
 
   const handleUploadFotoJogadorNovo = async (arquivo: File) => {
@@ -1476,7 +1575,7 @@ const Admin = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${j.status === "Finalizado" ? "bg-green-100 text-green-700" : j.status === "Em andamento" ? "bg-yellow-100 text-yellow-700" : j.status === "Aguardando confirmação" ? "bg-blue-100 text-blue-700" : j.status === "Em disputa" ? "bg-red-100 text-red-700" : j.status === "Adiado" ? "bg-orange-100 text-orange-700" : "bg-muted text-muted-foreground"}`}>{j.status}</span>
                   <button onClick={() => alternarSumulaJogo(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Ver/editar súmula (gols e cartões)">
                     {jogoSumulaAberta === j.jogo_id ? <X className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                   </button>
@@ -1606,6 +1705,11 @@ const Admin = () => {
                   <button onClick={() => salvarReagendamento(j.jogo_id)} disabled={salvandoReagendamento} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 ml-auto">
                     {salvandoReagendamento ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Reagendar
                   </button>
+                  {j.status !== "Adiado" && (
+                    <button onClick={() => marcarComoAdiado(j.jogo_id)} disabled={salvandoReagendamento} className="text-xs border border-orange-300 text-orange-700 px-2 py-1.5 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50">
+                      Marcar como Adiado (sem data)
+                    </button>
+                  )}
                   <button onClick={() => setReagendando(null)} className="text-xs border px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">Cancelar</button>
                 </div>
               )}
@@ -1669,7 +1773,17 @@ const Admin = () => {
                   />
                 </div>
               </div>
-              <div><label className="text-sm font-medium mb-1.5 block">Data e Hora *</label><input type="datetime-local" value={novoJogo.data_hora} onChange={(e) => setNovoJogo((p) => ({ ...p, data_hora: e.target.value }))} className={inputClass} /></div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Data e Hora {!novoJogo.adiado && "*"}</label>
+                <input type="datetime-local" value={novoJogo.data_hora} disabled={novoJogo.adiado}
+                  onChange={(e) => setNovoJogo((p) => ({ ...p, data_hora: e.target.value }))} className={`${inputClass} disabled:opacity-50`} />
+                <label className="flex items-center gap-2 text-sm mt-2 cursor-pointer w-fit text-muted-foreground">
+                  <input type="checkbox" checked={novoJogo.adiado}
+                    onChange={(e) => setNovoJogo((p) => ({ ...p, adiado: e.target.checked, data_hora: e.target.checked ? "" : p.data_hora }))}
+                    className="rounded" />
+                  Adiado / sem data definida ainda
+                </label>
+              </div>
               <div><label className="text-sm font-medium mb-1.5 block">Campeonato</label>
                 <select value={novoJogo.campeonato_id} onChange={(e) => setNovoJogo((p) => ({ ...p, campeonato_id: e.target.value }))} className={inputClass}>
                   <option value="">{isMaster ? "Amistoso" : "Selecione o campeonato"}</option>{campeonatosPermitidos.map((c) => <option key={c.campeonato_id} value={c.campeonato_id}>{c.nome}</option>)}
@@ -1695,7 +1809,7 @@ const Admin = () => {
               {msgJogo && <p className={`text-sm font-medium ${msgJogo.startsWith("✅") ? "text-green-600" : "text-destructive"}`}>{msgJogo}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={agendarJogo} disabled={agendando} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" />{agendando ? "Agendando..." : "Agendar Jogo"}</button>
-                <button onClick={() => setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "" })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
+                <button onClick={() => setNovoJogo({ campeonato_id: "", time_mandante_id: "", time_visitante_id: "", data_hora: "", estadio_id: "", arbitro_id: "", adiado: false })} className="flex items-center gap-2 border px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors"><X className="w-4 h-4" /> Limpar</button>
               </div>
             </div>
           </div>
@@ -1862,10 +1976,62 @@ const Admin = () => {
                               </button>
                             )
                           )}
+                          <button onClick={() => abrirPainelInscricoes(j.jogador_id)} className="text-muted-foreground hover:text-primary transition-colors" title="Times por campeonato (multi-time)">
+                            {painelInscricaoAberto === j.jogador_id ? <X className="w-4 h-4" /> : <Trophy className="w-4 h-4" />}
+                          </button>
                           <button onClick={() => abrirEdicaoJogador(j)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar jogador">
                             <Edit3 className="w-4 h-4" />
                           </button>
                         </div>
+                      </div>
+                    )}
+                    {painelInscricaoAberto === j.jogador_id && (
+                      <div className="mt-2 p-3 bg-muted/30 rounded-xl border space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Times por campeonato</p>
+                        {carregandoInscricoes === j.jogador_id ? (
+                          <p className="text-xs text-muted-foreground">Carregando inscrições...</p>
+                        ) : (inscricoesPorJogador[j.jogador_id]?.length ?? 0) === 0 ? (
+                          <p className="text-xs text-muted-foreground">Nenhuma inscrição em campeonato ainda — este jogador só aparece no elenco geral do time.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {inscricoesPorJogador[j.jogador_id].map((insc) => (
+                              <div key={insc.campeonato_id} className="flex items-center justify-between bg-background rounded-lg px-3 py-2 text-xs">
+                                <span>
+                                  <span className="font-medium">{insc.campeonato_nome}</span>
+                                  <span className="text-muted-foreground"> → {insc.time_nome}</span>
+                                </span>
+                                <button onClick={() => removerInscricao(j.jogador_id, insc.campeonato_id)} disabled={salvandoInscricao === j.jogador_id} className="text-destructive hover:opacity-70 disabled:opacity-50" title="Remover inscrição">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1 border-t">
+                          <div className="flex-1">
+                            <SeletorBusca
+                              opcoes={campeonatos.map((c) => ({ id: String(c.campeonato_id), label: c.nome }))}
+                              valor={novaInscricaoCampeonatoId}
+                              onSelecionar={setNovaInscricaoCampeonatoId}
+                              placeholder="Campeonato..."
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <SeletorBusca
+                              opcoes={carregandoTimesVinculados === j.jogador_id
+                                ? []
+                                : (timesVinculadosPorJogador[j.jogador_id] ?? []).map((t) => ({ id: String(t.time_id), label: t.nome_oficial }))}
+                              valor={novaInscricaoTimeId}
+                              onSelecionar={setNovaInscricaoTimeId}
+                              placeholder={carregandoTimesVinculados === j.jogador_id ? "Carregando times..." : "Por qual time..."}
+                            />
+                          </div>
+                          <button onClick={() => adicionarInscricao(j.jogador_id)} disabled={!novaInscricaoCampeonatoId || !novaInscricaoTimeId || salvandoInscricao === j.jogador_id}
+                            className="flex items-center justify-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 whitespace-nowrap">
+                            {salvandoInscricao === j.jogador_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusCircle className="w-3 h-3" />} Inscrever
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">O jogador só pode representar UM time por campeonato — inscrever de novo troca o time (transferência dentro do mesmo campeonato).</p>
                       </div>
                     )}
                   </div>
