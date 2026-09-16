@@ -1919,7 +1919,7 @@ const Admin = () => {
             ) : jogadoresDoTime.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">Esse time ainda não tem jogadores cadastrados.</div>
             ) : (
-              <div className="divide-y max-h-[32rem] overflow-y-auto rounded-b-xl">
+              <div className="divide-y rounded-b-xl">
                 {jogadoresDoTime.map((j) => (
                   <div key={j.jogador_id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
                     {jogadorEditando?.jogador_id === j.jogador_id ? (
