@@ -265,6 +265,7 @@ const Admin = () => {
   const [novaInscricaoCampeonatoId, setNovaInscricaoCampeonatoId] = useState("");
   const [novaInscricaoTimeId, setNovaInscricaoTimeId] = useState("");
   const [salvandoInscricao, setSalvandoInscricao] = useState<number | null>(null);
+  const [novoVinculoTimeId, setNovoVinculoTimeId] = useState("");
 
   // Novo jogador
   const [novoJogadorForm, setNovoJogadorForm] = useState({ nome: "", time_id: "", posicao: "", cpf: "", data_nascimento: "", foto_url: "" });
@@ -823,6 +824,25 @@ const Admin = () => {
     } finally { setCarregandoTimesVinculados(null); }
   };
 
+  const vincularNovoTime = async (jogadorId: number, timeId: string) => {
+    if (!timeId) return;
+    setSalvandoInscricao(jogadorId);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/jogadores/${jogadorId}/vincular-time`, {
+        method: "POST",
+        body: JSON.stringify({ time_id: parseInt(timeId) }),
+      });
+      if (res.ok) {
+        fetchTimesVinculadosJogador(jogadorId);
+        setNovoVinculoTimeId("");
+      } else {
+        alert(await extrairMensagemErro(res, "Erro ao vincular jogador ao time."));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao vincular jogador ao time.");
+    } finally { setSalvandoInscricao(null); }
+  };
+
   const abrirPainelInscricoes = (jogadorId: number) => {
     if (painelInscricaoAberto === jogadorId) { setPainelInscricaoAberto(null); return; }
     setEditandoNumeroJogadorId((atual) => (atual === jogadorId ? null : atual)); // fecha a edição de camisa desse jogador, se estiver aberta — mesmo motivo acima
@@ -831,6 +851,7 @@ const Admin = () => {
     // O time atual (aba selecionada) já é um candidato natural — pré-seleciona
     // pra cobrir o caso comum (inscrever o jogador pelo time que está sendo visto agora).
     setNovaInscricaoTimeId(timeSelecionadoJogadores || "");
+    setNovoVinculoTimeId("");
     if (!inscricoesPorJogador[jogadorId]) fetchInscricoesJogador(jogadorId);
     if (!timesVinculadosPorJogador[jogadorId]) fetchTimesVinculadosJogador(jogadorId);
   };
@@ -1990,7 +2011,35 @@ const Admin = () => {
                     )}
                     {painelInscricaoAberto === j.jogador_id && (
                       <div className="mt-2 p-3 bg-muted/30 rounded-xl border space-y-3">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Times por campeonato</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vínculos com times</p>
+                        {carregandoTimesVinculados === j.jogador_id ? (
+                          <p className="text-xs text-muted-foreground">Carregando times vinculados...</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {(timesVinculadosPorJogador[j.jogador_id] ?? []).map((t) => (
+                              <span key={t.time_id} className="text-xs bg-background border rounded-full px-2.5 py-1">{t.nome_oficial}</span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-stretch gap-2">
+                          <div className="flex-1">
+                            <SeletorBusca
+                              opcoes={times
+                                .filter((t) => !(timesVinculadosPorJogador[j.jogador_id] ?? []).some((tv) => tv.time_id === t.id))
+                                .map((t) => ({ id: String(t.id), label: t.nome_oficial }))}
+                              valor={novoVinculoTimeId}
+                              onSelecionar={setNovoVinculoTimeId}
+                              placeholder="Vincular a outro time..."
+                            />
+                          </div>
+                          <button onClick={() => vincularNovoTime(j.jogador_id, novoVinculoTimeId)} disabled={!novoVinculoTimeId || salvandoInscricao === j.jogador_id}
+                            className="flex items-center justify-center gap-1 text-xs border border-primary/40 text-primary px-3 py-2 rounded-lg hover:bg-primary/10 disabled:opacity-50 whitespace-nowrap">
+                            {salvandoInscricao === j.jogador_id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusCircle className="w-3 h-3" />} Vincular
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Vincular a um time novo não inscreve em nenhum campeonato automaticamente — isso é feito abaixo, depois do vínculo existir.</p>
+
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2 border-t">Times por campeonato</p>
                         {carregandoInscricoes === j.jogador_id ? (
                           <p className="text-xs text-muted-foreground">Carregando inscrições...</p>
                         ) : (inscricoesPorJogador[j.jogador_id]?.length ?? 0) === 0 ? (
