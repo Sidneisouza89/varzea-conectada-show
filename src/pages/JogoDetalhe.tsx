@@ -50,6 +50,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   "Em andamento":            { label: "Ao Vivo",               color: "bg-red-100 text-red-700" },
   "Aguardando confirmação":  { label: "Aguard. confirmação",   color: "bg-blue-100 text-blue-700" },
   "Em disputa":              { label: "Em disputa",            color: "bg-orange-100 text-orange-700" },
+  "Adiado":                  { label: "Adiado",                 color: "bg-orange-100 text-orange-700" },
 };
 
 // Status em que o jogo já está rolando (ou já rolou) e faz sentido mostrar
